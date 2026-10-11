@@ -267,6 +267,45 @@ export async function fetchWeatherFor(city) {
   }
 }
 
+// 城市 → 坐标（复用与天气同一份 Open-Meteo geocoding）。只收城市名，不给坐标出入口。
+export async function fetchGeocodeFor(city) {
+  const ctl = new AbortController()
+  const timer = setTimeout(() => ctl.abort(), WEATHER_TIMEOUT_MS)
+  try {
+    const g = await fetch(
+      'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) + '&count=1&language=zh&format=json',
+      { signal: ctl.signal },
+    )
+    const gj = await g.json().catch(() => null)
+    const first = gj && Array.isArray(gj.results) ? gj.results[0] : null
+    const lat = first ? Number(first.latitude) : NaN
+    const lng = first ? Number(first.longitude) : NaN
+    if (!first || !Number.isFinite(lat) || !Number.isFinite(lng)) return { ok: false, reason: 'city_not_found' }
+    return { ok: true, city: String(first.name || city), lat, lng }
+  } catch (e) {
+    return { ok: false, reason: e && e.name === 'AbortError' ? 'timeout' : 'network' }
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+// 城市名查询值：兼容「b64_<base64url>」（客户端默认，纯 ASCII）与原始明文（老写法 / curl）。
+// 有些前置网关会 400 掉 URL 里的非 ASCII 字节，所以客户端把城市名编成 ASCII 再传。
+function decodeCityParam(raw) {
+  const s = String(raw || '')
+  if (!s.startsWith('b64_')) return s
+  const body = s.slice(4)
+  if (!body || !/^[A-Za-z0-9_-]+$/.test(body)) return ''
+  try {
+    const b64 = body.replace(/-/g, '+').replace(/_/g, '/')
+    const pad = b64.length % 4 ? '='.repeat(4 - b64.length % 4) : ''
+    const text = Buffer.from(b64 + pad, 'base64').toString('utf8')
+    return text.includes('\uFFFD') ? '' : text
+  } catch {
+    return ''
+  }
+}
+
 function normalizeCity(raw) {
   return String(raw || '')
     .replace(/[\u0000-\u001f\u007f]/g, '')
@@ -280,6 +319,7 @@ export function createServer(env = process.env, { serveDist = false } = {}) {
   const sweeper = setInterval(() => sync.sweep(), 5 * 60 * 1000)
   if (typeof sweeper.unref === 'function') sweeper.unref()
   const weatherCache = new Map()
+  const geoCache = new Map()
 
   return http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', 'http://' + (req.headers.host || 'localhost'))
@@ -311,12 +351,24 @@ export function createServer(env = process.env, { serveDist = false } = {}) {
     if (url.pathname === '/api/weather') {
       if (!sameOrigin(req)) return json(res, 403, { error: 'forbidden' })
       if (req.method !== 'GET') return json(res, 405, { error: 'method' })
-      const city = normalizeCity(url.searchParams.get('city'))
+      const city = normalizeCity(decodeCityParam(url.searchParams.get('city')))
       if (!city) return json(res, 400, { ok: false, reason: 'missing_city' })
       const hit = weatherCache.get(city)
       if (hit && Date.now() - hit.at < WEATHER_TTL_MS) return json(res, 200, hit.value)
       const out = await fetchWeatherFor(city)
       if (out && out.ok) weatherCache.set(city, { at: Date.now(), value: out })
+      return json(res, out && out.ok ? 200 : 502, out || { ok: false, reason: 'unavailable' })
+    }
+
+    if (url.pathname === '/api/geocode') {
+      if (!sameOrigin(req)) return json(res, 403, { error: 'forbidden' })
+      if (req.method !== 'GET') return json(res, 405, { error: 'method' })
+      const city = normalizeCity(decodeCityParam(url.searchParams.get('city')))
+      if (!city) return json(res, 400, { ok: false, reason: 'missing_city' })
+      const hit = geoCache.get(city)
+      if (hit && Date.now() - hit.at < WEATHER_TTL_MS) return json(res, 200, hit.value)
+      const out = await fetchGeocodeFor(city)
+      if (out && out.ok) geoCache.set(city, { at: Date.now(), value: out })
       return json(res, out && out.ok ? 200 : 502, out || { ok: false, reason: 'unavailable' })
     }
 

@@ -2,7 +2,7 @@
 // 一律断言「失败就静默返回 null」——不能因为没连上服务端就把分享卡住。
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { weatherText, weatherAdvice, normalizeWeather, fetchWeather } from '../../src/core/weather.js'
+import { weatherText, weatherAdvice, normalizeWeather, fetchWeather, encodeCityParam } from '../../src/core/weather.js'
 
 const ok = (cond, msg) => {
   if (typeof cond !== 'boolean') throw new TypeError('ck() 要求布尔断言: ' + msg)
@@ -63,8 +63,16 @@ test('fetchWeather：成功走规整；失败/超时/没服务端一律 null（�
   ok(await fetchWeather('厦门', {}) === null || true, '没有 fetch 实现时不炸（Node 下有全局 fetch，这里只断言不抛）')
 })
 
-test('fetchWeather：请求路径带上城市名（URL 编码）', async () => {
+test('encodeCityParam：编成纯 ASCII（避开网关对非 ASCII 的 400）', () => {
+  const v = encodeCityParam('乌鲁木齐')
+  ok(v.startsWith('b64_'), '带 b64_ 前缀: ' + v)
+  ok(/^[\x20-\x7E]*$/.test(v), '整串是 ASCII: ' + v)
+  ok(encodeCityParam('') === 'b64_', '空串也能编（调用方另有空值短路）')
+})
+
+test('fetchWeather：请求路径带上（ASCII 化的）城市名', async () => {
   let seen = ''
   await fetchWeather('乌鲁木齐', { fetchImpl: async (url) => { seen = url; return { ok: false, json: async () => ({}) } } })
-  ok(seen === '/api/weather?city=' + encodeURIComponent('乌鲁木齐'), '请求路径: ' + seen)
+  ok(seen === '/api/weather?city=' + encodeCityParam('乌鲁木齐'), '请求路径: ' + seen)
+  ok(/^[\x20-\x7E]*$/.test(seen), '整条请求路径是 ASCII: ' + seen)
 })

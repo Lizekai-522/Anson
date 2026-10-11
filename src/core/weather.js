@@ -93,6 +93,21 @@ export function normalizeWeather(data) {
   }
 }
 
+// 城市名 → URL 查询值：编成纯 ASCII 的 base64url（带 b64_ 前缀）。
+// 有些前置网关/预览代理会直接 400 掉 URL 里含非 ASCII 字节的请求（正是「查不到天气」的元凶），
+// 编成 ASCII 就能安全穿过；服务端两种写法都认（见 server/app.mjs 的 decodeCityParam）。
+export function encodeCityParam(name) {
+  const s = String(name || '')
+  try {
+    const bytes = new TextEncoder().encode(s)
+    let bin = ''
+    for (const b of bytes) bin += String.fromCharCode(b)
+    return 'b64_' + btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  } catch {
+    return s
+  }
+}
+
 // 查一个城市的天气：失败/超时/服务端没配 → 返回 null（调用方静默）
 export async function fetchWeather(city, { fetchImpl, timeoutMs = 5000, base = '' } = {}) {
   const name = String(city || '').trim()
@@ -102,7 +117,7 @@ export async function fetchWeather(city, { fetchImpl, timeoutMs = 5000, base = '
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null
   const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null
   try {
-    const r = await doFetch(base + '/api/weather?city=' + encodeURIComponent(name), ctl ? { signal: ctl.signal } : undefined)
+    const r = await doFetch(base + '/api/weather?city=' + encodeCityParam(name), ctl ? { signal: ctl.signal } : undefined)
     if (!r || !r.ok) return null
     const data = await r.json().catch(() => null)
     return normalizeWeather(data)

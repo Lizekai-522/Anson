@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   lngToTileX, latToTileY, tileUrl, viewportTiles, isValidLatLng, formatLatLng, TILE_SIZE,
+  projectPixel, fitPointsViewport,
 } from '../../src/core/map.js'
 
 const ok = (cond, msg) => {
@@ -76,4 +77,42 @@ test('isValidLatLng：范围外的值不画', () => {
 test('formatLatLng：6 位小数，非法值给占位符', () => {
   ok(formatLatLng(31.2304, 121.4737) === '31.230400, 121.473700', formatLatLng(31.2304, 121.4737))
   ok(formatLatLng(NaN, 1) === '—, 1.000000', formatLatLng(NaN, 1))
+})
+
+test('projectPixel：与 viewportTiles 的中心标记一致', () => {
+  const v = viewportTiles({ lat: 31.23, lng: 121.47, zoom: 10, width: 360, height: 240 })
+  const p = projectPixel({ lat: 31.23, lng: 121.47, zoom: 10, left: v.left, top: v.top })
+  ok(p && near(p.left, v.marker.left, 1) && near(p.top, v.marker.top, 1), '中心点像素一致: ' + JSON.stringify(p))
+  ok(projectPixel({ lat: NaN, lng: 1, zoom: 10 }) === null, '非法坐标返回 null')
+})
+
+test('fitPointsViewport：无有效点返回 null，单点给城市级 zoom', () => {
+  ok(fitPointsViewport({ points: [] }) === null, '空返回 null')
+  ok(fitPointsViewport({ points: [{ lat: NaN, lng: 1 }] }) === null, '全是无效点返回 null')
+  const one = fitPointsViewport({ points: [{ lat: 31.23, lng: 121.47 }], width: 360, height: 240 })
+  ok(one && one.zoom === 14, '单点 zoom=14: ' + (one && one.zoom))
+  ok(near(one.center.lat, 31.23, 1e-6) && near(one.center.lng, 121.47, 1e-6), '单点中心=该点')
+})
+
+test('fitPointsViewport：多点自动取景，所有点都落在视口内', () => {
+  const pts = [
+    { lat: 39.9042, lng: 116.4074 }, // 北京
+    { lat: 31.2304, lng: 121.4737 }, // 上海
+    { lat: 24.8741, lng: 118.6757 }, // 厦门/泉州一带
+  ]
+  const width = 360, height = 240
+  const fit = fitPointsViewport({ points: pts, width, height })
+  ok(fit && fit.zoom >= 3 && fit.zoom <= 16, 'zoom 在 [3,16]: ' + fit.zoom)
+  const base = viewportTiles({ lat: fit.center.lat, lng: fit.center.lng, zoom: fit.zoom, width, height })
+  for (const p of pts) {
+    const px = projectPixel({ lat: p.lat, lng: p.lng, zoom: base.zoom, left: base.left, top: base.top })
+    ok(px.left >= 0 && px.left <= width, 'x 在视口内: ' + px.left)
+    ok(px.top >= 0 && px.top <= height, 'y 在视口内: ' + px.top)
+  }
+})
+
+test('fitPointsViewport：范围越大 zoom 越小（单调）', () => {
+  const near2 = fitPointsViewport({ points: [{ lat: 31.2, lng: 121.4 }, { lat: 31.3, lng: 121.5 }], width: 360, height: 240 })
+  const far2 = fitPointsViewport({ points: [{ lat: 39.9, lng: 116.4 }, { lat: 24.8, lng: 118.6 }], width: 360, height: 240 })
+  ok(near2.zoom > far2.zoom, '近的 zoom 更大: ' + near2.zoom + ' > ' + far2.zoom)
 })

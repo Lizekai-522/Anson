@@ -3,11 +3,13 @@
 // 复用在两处：子女端「长辈现在在哪」，长辈端自己的「我在哪」。
 // 瓦片是跨域图片，挂了就留白，不阻塞页面 —— 地图挂了也不该影响行程卡片。
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { viewportTiles, isValidLatLng, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL } from '../core/map.js'
+import { viewportTiles, fitPointsViewport, projectPixel, isValidLatLng, OSM_ATTRIBUTION, OSM_COPYRIGHT_URL } from '../core/map.js'
 
 const props = defineProps({
   lat: { type: Number, default: NaN },
   lng: { type: Number, default: NaN },
+  // 多点模式：传 [{ lat, lng, label?, order? }] 就自动取景并给每个点画编号标记（行程目的地用）
+  points: { type: Array, default: () => [] },
   zoom: { type: Number, default: 15 },
   height: { type: Number, default: 200 },
   label: { type: String, default: '' },
@@ -42,10 +44,25 @@ onBeforeUnmount(() => {
 function zoomIn() { z.value = Math.min(19, z.value + 1) }
 function zoomOut() { z.value = Math.max(3, z.value - 1) }
 
-const valid = computed(() => isValidLatLng(props.lat, props.lng))
+const pointsMode = computed(() => Array.isArray(props.points) && props.points.length > 0)
+const validPoints = computed(() => (props.points || []).filter((p) => p && isValidLatLng(p.lat, p.lng)))
+const valid = computed(() => (pointsMode.value ? validPoints.value.length > 0 : isValidLatLng(props.lat, props.lng)))
+
 const view = computed(() => {
-  if (!valid.value) return { tiles: [], marker: { left: 0, top: 0 } }
-  return viewportTiles({ lat: props.lat, lng: props.lng, zoom: z.value, width: width.value, height: props.height })
+  if (!valid.value) return { tiles: [], markers: [], marker: { left: 0, top: 0 } }
+  // 多点：自动取景到能同时容下所有点，再给每个点算像素位置
+  if (pointsMode.value) {
+    const fit = fitPointsViewport({ points: validPoints.value, width: width.value, height: props.height })
+    if (!fit) return { tiles: [], markers: [], marker: { left: 0, top: 0 } }
+    const base = viewportTiles({ lat: fit.center.lat, lng: fit.center.lng, zoom: fit.zoom, width: width.value, height: props.height })
+    const markers = validPoints.value.map((p, i) => {
+      const px = projectPixel({ lat: p.lat, lng: p.lng, zoom: base.zoom, left: base.left, top: base.top }) || { left: 0, top: 0 }
+      return { key: 'm' + i, left: px.left, top: px.top, order: p.order != null ? p.order : i + 1, label: p.label || '' }
+    })
+    return { tiles: base.tiles, markers, marker: { left: 0, top: 0 } }
+  }
+  const base = viewportTiles({ lat: props.lat, lng: props.lng, zoom: z.value, width: width.value, height: props.height })
+  return { tiles: base.tiles, marker: base.marker, markers: [] }
 })
 </script>
 
@@ -64,9 +81,15 @@ const view = computed(() => {
         loading="lazy"
         referrerpolicy="no-referrer"
       />
-      <span class="amap-marker" :style="{ left: view.marker.left + 'px', top: view.marker.top + 'px' }" aria-hidden="true"></span>
+      <span v-if="!pointsMode" class="amap-marker" :style="{ left: view.marker.left + 'px', top: view.marker.top + 'px' }" aria-hidden="true"></span>
+      <span
+        v-for="m in view.markers" :key="m.key"
+        class="amap-marker amap-marker-no"
+        :style="{ left: m.left + 'px', top: m.top + 'px' }"
+        :title="m.label"
+      ><span class="amap-marker-num" aria-hidden="true">{{ m.order }}</span><span class="visually-hidden">{{ m.label }}</span></span>
       <span v-if="label" class="amap-label">{{ label }}</span>
-      <div v-if="controls" class="amap-zoom">
+      <div v-if="controls && !pointsMode" class="amap-zoom">
         <button type="button" class="amap-zbtn" aria-label="缩小地图" @click="zoomOut">−</button>
         <button type="button" class="amap-zbtn" aria-label="放大地图" @click="zoomIn">＋</button>
       </div>
@@ -97,6 +120,17 @@ const view = computed(() => {
   border: 3px solid #FFFFFF;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
 }
+/* 多点模式：带序号的绿色标记 */
+.amap-marker-no {
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0B6B45;
+}
+.amap-marker-num { color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1; }
 .amap-label {
   position: absolute;
   left: 8px;

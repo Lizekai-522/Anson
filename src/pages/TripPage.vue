@@ -5,6 +5,7 @@ import { navigate } from '../core/router.js'
 import { store, toast, uid, upsertTrip, removeTrip, getTrip, listShares } from '../core/store.js'
 import { sanityCheck, createBlankSegment, refreshPlain, issueLabel, TODO_LEVELS as TODO_LEVEL_KEYS, guessCity } from '../core/agents.js'
 import { fetchWeather } from '../core/weather.js'
+import { fetchCityCoords } from '../core/geo.js'
 import { runAssist, applyAssist, hasWork } from '../core/ai.js'
 import { loadModelConfig, isConfigured, reasonText } from '../core/model.js'
 import { downloadIcs, downloadTripPoster } from '../core/export.js'
@@ -179,6 +180,7 @@ async function queryWeather() {
     t.weather = map
     upsertTrip({ ...t, updatedAt: Date.now() })
     toast(`已查到 ${got} 个地方的天气，会随分享一起发给长辈`, 'ok')
+    weatherBlock.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }) // 查完就地看到结果
   } finally {
     weatherBusy.value = false
   }
@@ -189,6 +191,88 @@ function weatherOf(seg) {
   const city = guessCity(seg.toCity || seg.to || '')
   return (city && t.weather[city]) || ''
 }
+
+// ---- 行程总览：目的地天气 / 按天日历 / 路线地图（都铺在页面上，不只 toast / 下载）----
+const weatherBlock = ref(null)
+
+// 目的地：按行程顺序去重（只取城市名）
+const destCities = computed(() => {
+  const t = trip.value
+  if (!t) return []
+  const out = []
+  for (const s of t.segments || []) {
+    const c = guessCity(s.toCity || s.to || '')
+    if (c && !out.includes(c)) out.push(c)
+  }
+  return out
+})
+
+const weatherEntries = computed(() => {
+  const w = (trip.value && trip.value.weather) || {}
+  return destCities.value.map((city) => ({ city, advice: w[city] || '' }))
+})
+
+// 按天分组，每天一行摘要（避免与下方段列表重复占屏）
+const WEEKDAY = '日一二三四五六'
+function dayLabel(date) {
+  if (!date) return '日期待定'
+  const parts = date.split('-').map(Number)
+  const wd = WEEKDAY[new Date(parts[0], parts[1] - 1, parts[2]).getDay()]
+  return `${String(parts[1]).padStart(2, '0')}-${String(parts[2]).padStart(2, '0')} 周${wd}`
+}
+const tripDays = computed(() => {
+  const t = trip.value
+  if (!t) return []
+  const order = []
+  const groups = new Map()
+  for (const s of t.segments || []) {
+    const key = s.date || ''
+    if (!groups.has(key)) { groups.set(key, []); order.push(key) }
+    groups.get(key).push(s)
+  }
+  return order.map((key) => {
+    const segs = groups.get(key)
+    const bits = segs.slice(0, 3).map((s) => {
+      const name = (s.plain && s.plain.title) || s.to || s.toCity || '待补'
+      return `${typeMeta(s.type).label} ${name}`
+    })
+    const more = segs.length > 3 ? ` 等 ${segs.length} 段` : ''
+    return { date: key, dateLabel: dayLabel(key), summary: `${segs.length} 段 · ${bits.join(' · ')}${more}` }
+  })
+})
+
+// 路线地图：把目的地城市查成经纬度（只传城市名）；查不到就显示提示，不弹错
+const geoBusy = ref(false)
+const geoHint = ref('')
+const geoPoints = computed(() => {
+  const geo = (trip.value && trip.value.geo) || {}
+  return destCities.value
+    .map((c, i) => (geo[c] ? { lat: geo[c].lat, lng: geo[c].lng, label: c, order: i + 1 } : null))
+    .filter(Boolean)
+})
+async function loadGeo() {
+  const t = trip.value
+  if (!t || geoBusy.value) return
+  if (!destCities.value.length) { geoHint.value = '这些段里没看出具体的城市名，先补一下到达地。'; return }
+  const cities = destCities.value.filter((c) => !(t.geo && t.geo[c]))
+  if (!cities.length) { geoHint.value = ''; return }
+  geoBusy.value = true
+  try {
+    const map = { ...(t.geo || {}) }
+    let got = 0
+    for (const city of cities) {
+      const g = await fetchCityCoords(city)
+      if (g) { map[city] = { lat: g.lat, lng: g.lng }; got += 1 }
+    }
+    if (!got) { geoHint.value = '接不上地图服务：本机跑一下 server（node server/notify-server.mjs）再刷新。'; return }
+    t.geo = map
+    upsertTrip({ ...t, updatedAt: Date.now() })
+    geoHint.value = ''
+  } finally {
+    geoBusy.value = false
+  }
+}
+onMounted(() => { if (destCities.value.length) loadGeo() })
 
 // ---- 添加 / 删除段（手动补录，与解析产物同一契约）----
 const ADD_TYPES = [
@@ -549,6 +633,59 @@ onBeforeUnmount(() => {
         </ul>
       </section>
 
+      <!-- 行程总览：把天气 / 日历 / 地图直接铺在页面上，而不是只 toast 或只下载 -->
+      <section class="paper-card trip-overview" aria-label="行程总览">
+        <div class="ov-head">
+          <h2 class="block-title">行程总览</h2>
+          <button class="btn btn-ghost btn-sm" :disabled="weatherBusy" @click="queryWeather">
+            {{ weatherBusy ? '查询中…' : '刷新天气' }}
+          </button>
+        </div>
+
+        <div ref="weatherBlock" class="ov-block">
+          <p class="ov-label">目的地天气</p>
+          <ul v-if="weatherEntries.some((e) => e.advice)" class="ov-weather">
+            <li v-for="e in weatherEntries" :key="e.city">
+              <span class="ov-city">{{ e.city }}</span>
+              <span v-if="e.advice" class="ov-advice">{{ e.advice }}</span>
+              <span v-else class="tag">未查到</span>
+            </li>
+          </ul>
+          <p v-else class="ov-empty">点右上「查目的地天气」，看看这几天要带什么。</p>
+        </div>
+
+        <div class="ov-block">
+          <div class="ov-label-row">
+            <p class="ov-label">行程日历</p>
+            <button class="btn btn-ghost btn-sm" @click="exportCalendar">导出 .ics</button>
+          </div>
+          <ol v-if="tripDays.length" class="ov-days">
+            <li v-for="d in tripDays" :key="d.date">
+              <span class="ov-day-date num">{{ d.dateLabel }}</span>
+              <span class="ov-day-sum">{{ d.summary }}</span>
+            </li>
+          </ol>
+          <p v-else class="ov-empty">这个行程还没有内容。</p>
+        </div>
+
+        <div class="ov-block">
+          <div class="ov-label-row">
+            <p class="ov-label">路线地图</p>
+            <button v-if="geoPoints.length" class="btn btn-ghost btn-sm" :disabled="geoBusy" @click="loadGeo">
+              {{ geoBusy ? '取位置中…' : '刷新' }}
+            </button>
+          </div>
+          <RealMap
+            v-if="geoPoints.length"
+            class="ov-map"
+            :points="geoPoints"
+            :height="240"
+            label="行程目的地"
+          />
+          <p v-else class="ov-empty">{{ geoBusy ? '正在取目的地位置…' : (geoHint || '点「刷新」在地图上看看要去的几个地方。') }}</p>
+        </div>
+      </section>
+
       <div v-if="canAssist" class="assist-bar">
         <button class="btn btn-ghost btn-sm" :disabled="assisting" @click="aiAssist">
           {{ assisting ? 'AI 补全中…' : 'AI 一键补全' }}
@@ -866,6 +1003,24 @@ onBeforeUnmount(() => {
   background: rgba(154, 107, 8, 0.06);
 }
 .issue-info { border-left-color: var(--c-ink-2); }
+
+/* ---- 行程总览：天气 / 日历 / 地图 ---- */
+.trip-overview { padding: 16px; margin-bottom: 16px; }
+.ov-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ov-block { margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--c-line); }
+.ov-block:first-of-type { margin-top: 8px; padding-top: 0; border-top: 0; }
+.ov-label { margin: 0; font-size: 13px; font-weight: 700; color: var(--c-brand); }
+.ov-label-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.ov-empty { margin: 8px 0 0; font-size: 13px; color: var(--c-ink-2); }
+.ov-weather { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ov-weather li { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 14px; color: var(--c-ink-1); }
+.ov-city { font-weight: 600; color: var(--c-ink-0); }
+.ov-advice { color: var(--c-ink-1); }
+.ov-days { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ov-days li { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; font-size: 14px; }
+.ov-day-date { flex: none; font-weight: 700; color: var(--c-ink-0); }
+.ov-day-sum { color: var(--c-ink-1); min-width: 0; overflow-wrap: anywhere; }
+.ov-map { display: block; margin-top: 8px; }
 
 /* ---- 安全提醒（紧急求助 / 平安到达超时）---- */
 .safety-card {

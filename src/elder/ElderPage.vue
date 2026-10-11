@@ -190,7 +190,19 @@ function guideToNext(fromIndex) {
     if (focusTimer) clearTimeout(focusTimer)
     focusTimer = setTimeout(() => { highlightSegId.value = '' }, 6000)
   }, 0)
-  if (prefs.value.autoRead) speakOne(nextSpeech(card, '接下来您要去：'))
+  if (prefs.value.autoRead) {
+    // 自动朗读也要跟长辈选的播报语言走：选了闽南话就别用普通话念这句
+    if (prefs.value.voice === 'nan') {
+      speakCardNan(card, i).then((ok) => {
+        if (!ok) {
+          voiceNotice.value = '这台设备没有闽南语声音 —— 先用普通话说这句'
+          speakOne(nextSpeech(card, '接下来您要去：'))
+        }
+      })
+    } else {
+      speakOne(nextSpeech(card, '接下来您要去：'))
+    }
+  }
 }
 
 // ---- 走完撤销：5 秒内可反悔，超时自动消失（不打断、不弹框）----
@@ -503,6 +515,42 @@ function speechDone(timeoutMs = 20000) {
   })
 }
 
+// 播放一条已决策的语音项；返回 { spoke, degraded }：
+//   spoke   = 这次到底出没出声（音频播完或 TTS 念了都算）
+//   degraded= 走了降级（音频放不出退 TTS / TTS 也失败）
+async function playResolved(v) {
+  if (v.mode === 'pack') {
+    const played = await playAudio(v.src)
+    if (played) return { spoke: true, degraded: false }
+    // 这台设备放不出这个音频格式（少见，但真会发生）→ 退回设备 TTS
+    const spoke = speakText(v.text, v.lang || 'nan-TW', v.voice)
+    if (spoke) await speechDone()
+    return { spoke, degraded: true }
+  }
+  const spoke = speakText(v.text, v.lang, v.voice)
+  if (spoke) await speechDone()
+  return { spoke, degraded: !spoke }
+}
+
+// 只念某一张卡（闽南话）：返回是否出了声；false = 这台设备没有闽南语能力（连音频包都没有）
+async function speakCardNan(card, index) {
+  const v = resolveVoice({
+    voice: 'nan', card, index,
+    manifest: nanManifest.value || { items: {} }, deviceVoices: deviceVoices(),
+  })
+  if (v.mode === 'none') return false
+  stopNanAudio()
+  try { window.speechSynthesis.cancel() } catch {}
+  speaking.value = true
+  try {
+    return (await playResolved(v)).spoke
+  } catch {
+    return false
+  } finally {
+    speaking.value = false
+  }
+}
+
 async function speakNan() {
   voiceNotice.value = ''
   const voices = deviceVoices()
@@ -518,15 +566,7 @@ async function speakNan() {
   try {
     for (const v of usable) {
       if (!speaking.value) break
-      if (v.mode === 'pack') {
-        const played = await playAudio(v.src)
-        if (played) continue
-        // 这台设备放不出这个音频格式（少见，但真会发生）→ 退回设备 TTS
-        degraded = true
-      }
-      const spoke = speakText(v.text, v.mode === 'pack' ? 'nan-TW' : v.lang, v.voice)
-      if (!spoke) degraded = true
-      else await speechDone()
+      if ((await playResolved(v)).degraded) degraded = true
     }
   } catch {
     // 任何意外都不该让长辈端卡在"播报中"——如实降级到普通话
