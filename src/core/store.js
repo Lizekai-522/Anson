@@ -41,7 +41,9 @@ export function safeGet(k, fallback) {
   } catch { return fallback }
 }
 export function safeSet(k, v) {
-  try { localStorage.setItem(k, JSON.stringify(v)) } catch (e) { console.error('[store] persist fail', e) }
+  try { localStorage.setItem(k, JSON.stringify(v)); return { ok: true } } catch (e) {
+    return { ok: false, reason: e?.name || 'storage-unavailable' }
+  }
 }
 export function safeDel(k) {
   try { localStorage.removeItem(k) } catch {}
@@ -184,8 +186,8 @@ function migrateLegacyData(accountId) {
 
 // ---- 持久化 ----
 export function persist() {
-  if (!store.account) return
-  safeSet(KEYS.data(store.account.id), JSON.parse(JSON.stringify(store.data)))
+  if (!store.account) return { ok: false, reason: 'no-account' }
+  return safeSet(KEYS.data(store.account.id), store.data)
 }
 
 // ---- 备份恢复：纯函数，便于单测（形状校验 + 按 id 去重合并，不改动入参）----
@@ -213,11 +215,18 @@ export function mergeBackup(current, incoming) {
 }
 
 // ---- 行程 CRUD ----
+export function saveAccountData(next) {
+  if (!store.account) return { ok: false, reason: 'no-account' }
+  const result = safeSet(KEYS.data(store.account.id), next)
+  if (result.ok) store.data = next
+  return result
+}
 export function upsertTrip(trip) {
-  const i = store.data.trips.findIndex((t) => t.id === trip.id)
-  if (i >= 0) store.data.trips.splice(i, 1, trip)
-  else store.data.trips.unshift(trip)
-  persist()
+  const trips = store.data.trips.slice()
+  const i = trips.findIndex((t) => t.id === trip.id)
+  if (i >= 0) trips.splice(i, 1, trip)
+  else trips.unshift(trip)
+  return saveAccountData({ ...store.data, trips })
 }
 
 export function removeTrip(id) {
@@ -233,12 +242,10 @@ export function getTrip(id) {
 
 // ---- 行程草稿（随账号桶隔离）----
 export function setDraft(draft) {
-  store.data.draft = draft
-  persist()
+  return saveAccountData({ ...store.data, draft })
 }
 export function clearDraft() {
-  store.data.draft = null
-  persist()
+  return saveAccountData({ ...store.data, draft: null })
 }
 
 // ---- 家人 ----
@@ -277,8 +284,7 @@ export function listFamilyGroups() {
 
 // ---- 子女邀请记录 ----
 export function saveInvite(invite) {
-  store.data.invites.unshift(invite)
-  persist()
+  return saveAccountData({ ...store.data, invites: [invite, ...store.data.invites] })
 }
 export function listInvites() {
   return store.data.invites
@@ -286,8 +292,7 @@ export function listInvites() {
 
 // ---- 分享记录 ----
 export function saveShare(share) {
-  store.data.shares.unshift(share)
-  persist()
+  return saveAccountData({ ...store.data, shares: [share, ...store.data.shares] })
 }
 export function listShares() {
   return store.data.shares

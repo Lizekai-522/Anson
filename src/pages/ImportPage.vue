@@ -34,7 +34,8 @@ watch([raw, fallbackDate], ([r]) => {
   clearTimeout(draftTimer)
   draftTimer = setTimeout(() => {
     if (!r.trim()) return
-    setDraft({ raw: r, fallbackDate: fallbackDate.value, savedAt: Date.now() })
+    const saved = setDraft({ raw: r, fallbackDate: fallbackDate.value, savedAt: Date.now() })
+    if (!saved.ok) toast('草稿没有保存到本机，请保留或复制原文后重试', 'err')
   }, 800)
 })
 onMounted(() => {
@@ -155,7 +156,9 @@ const reviewCount = computed(() => {
 function confirmImport() {
   if (!result.value) return
   const trip = { ...result.value, id: uid('trip'), createdAt: Date.now(), updatedAt: Date.now() }
-  upsertTrip(trip)
+  const saved = upsertTrip(trip)
+  if (!saved.ok) { toast('没有保存到本机，原文和预览仍在，请复制原文或重试', 'err'); return }
+  clearTimeout(draftTimer)
   clearDraft()
   toast('行程已导入', 'ok')
   navigate('/trip/' + trip.id)

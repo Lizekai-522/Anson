@@ -35,7 +35,7 @@ function saveTitle() {
   if (!t) return
   const v = titleText.value.trim()
   if (!v || v === t.title) { titleText.value = t.title; return }
-  upsertTrip({ ...t, title: v, updatedAt: Date.now() })
+  if (!upsertTrip({ ...t, title: v, updatedAt: Date.now() }).ok) toast('标题没有保存到本机，请重试', 'err')
 }
 
 // ---- 删除行程（两步确认）----
@@ -136,7 +136,8 @@ function toggleEdit(seg) {
   editForm.guide = seg.guide || ''
   editForm.todos = todosOf(seg).map((t) => ({ text: t.text || '', level: t.level || 'normal' }))
 }
-function saveSegment(seg) {
+function saveSegment(original) {
+  const seg = JSON.parse(JSON.stringify(original))
   seg.date = editForm.date || seg.date
   if (editForm.date) seg.dateInvalid = false // 表单值是标准日期，原文写法问题即告解决
   seg.departTime = editForm.departTime || null
@@ -155,7 +156,8 @@ function saveSegment(seg) {
   // dateLiteral 保留原值（留档），这里不回写
   refreshPlain(seg) // 改了站点/车次，人话与语音要跟着变，否则长辈端还是旧说法
   const t = trip.value
-  if (t) rerunIssues(t)
+  const edited = t ? { ...t, segments: t.segments.map((s) => s.id === seg.id ? seg : s) } : null
+  if (!edited || !rerunIssues(edited).ok) { toast('没有保存到本机，编辑内容仍在，请重试', 'err'); return }
   editingId.value = ''
   toast('已保存', 'ok')
 }
@@ -177,8 +179,7 @@ async function queryWeather() {
       if (w && w.advice) { map[city] = w.advice; got += 1 }
     }
     if (!got) { toast('没连上天气服务，不影响看行程', 'warn'); return }
-    t.weather = map
-    upsertTrip({ ...t, updatedAt: Date.now() })
+    if (!upsertTrip({ ...t, weather: map, updatedAt: Date.now() }).ok) { toast('天气没有保存到本机，请重试', 'err'); return }
     toast(`已查到 ${got} 个地方的天气，会随分享一起发给长辈`, 'ok')
     weatherBlock.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }) // 查完就地看到结果
   } finally {
@@ -266,8 +267,10 @@ async function loadGeo() {
       if (g) { map[city] = { lat: g.lat, lng: g.lng }; got += 1 }
     }
     if (!got) { geoHint.value = '接不上地图服务：本机跑一下 server（node server/notify-server.mjs）再刷新。'; geoMissing.value = []; return }
-    t.geo = map
-    upsertTrip({ ...t, updatedAt: Date.now() })
+    if (!upsertTrip({ ...t, geo: map, updatedAt: Date.now() }).ok) {
+      geoHint.value = '地图位置没有保存到本机，请清理空间后重试。'
+      return
+    }
     geoHint.value = ''
     geoMissing.value = cities.filter((c) => !map[c]) // 仍没定位到的目的地，如实写出来
   } finally {
@@ -288,15 +291,15 @@ const addingOpen = ref(false)
 
 function todayStr() { return fmt(new Date()) }
 function rerunIssues(t) {
-  t.issues = sanityCheck(t.segments, { today: todayStr() })
-  upsertTrip({ ...t, updatedAt: Date.now() })
+  const next = JSON.parse(JSON.stringify(t))
+  next.issues = sanityCheck(next.segments, { today: todayStr() })
+  return upsertTrip({ ...next, updatedAt: Date.now() })
 }
 function addSegment(type) {
   const t = trip.value
   if (!t) return
   const seg = createBlankSegment(type, todayStr())
-  t.segments.push(seg)
-  rerunIssues(t)
+  if (!rerunIssues({ ...t, segments: [...t.segments, seg] }).ok) { toast('新段没有保存到本机，请重试', 'err'); return }
   addingOpen.value = false
   toggleEdit(seg) // 直接展开表单，接着就能填
   toast('已添加一段，请补齐信息', 'ok')
@@ -307,8 +310,7 @@ function deleteSegment(seg) {
   if (!askConfirm('seg-' + seg.id)) return
   const i = t.segments.findIndex((s) => s.id === seg.id)
   if (i < 0) return
-  t.segments.splice(i, 1)
-  rerunIssues(t)
+  if (!rerunIssues({ ...t, segments: t.segments.filter((s) => s.id !== seg.id) }).ok) { toast('删除没有保存到本机，请重试', 'err'); return }
   editingId.value = ''
   toast('已删除这一段', 'info')
 }
@@ -339,13 +341,13 @@ async function aiAssist() {
   }
 }
 function applyAssistResult() {
-  const t = trip.value
+  const t = trip.value ? JSON.parse(JSON.stringify(trip.value)) : null
   const p = assistPreview.value
   if (!t || !p) return
   const r = applyAssist(t, p.patches, { today: todayStr() })
-  assistPreview.value = null
   if (!r.ok) { toast(reasonText(r.reason), 'err'); return }
-  rerunIssues(t)
+  if (!rerunIssues(t).ok) { toast('补全结果没有保存到本机，预览仍在，请重试', 'err'); return }
+  assistPreview.value = null
   toast(`已补全 ${r.filled + r.added} 项，标了「待人工确认」的段请再核对`, 'ok')
 }
 function cancelAssist() { assistPreview.value = null }
@@ -384,8 +386,9 @@ const clProgress = computed(() => {
 function toggleItem(id) {
   const t = trip.value
   if (!t) return
-  toggleChecklistItem(t, id)
-  upsertTrip({ ...t, updatedAt: Date.now() })
+  const edited = JSON.parse(JSON.stringify(t))
+  toggleChecklistItem(edited, id)
+  if (!upsertTrip({ ...edited, updatedAt: Date.now() }).ok) toast('清单没有保存到本机，请重试', 'err')
 }
 
 // ---- §F/G 长辈动态：长辈的动作 + 实时位置（双轨同步）----

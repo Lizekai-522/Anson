@@ -1,5 +1,6 @@
 <script setup>
 // 我的：账号信息、诚实声明、数据备份/清空、退出登录、关于。
+import { saveAccountData } from '../core/store.js'
 import { ref, reactive, computed, onBeforeUnmount } from 'vue'
 import { navigate } from '../core/router.js'
 import { store, toast, persist, mergeBackup } from '../core/store.js'
@@ -131,8 +132,7 @@ async function onBackupPicked(e) {
   if (res.added.shares) parts.push(`${res.added.shares} 条分享记录`)
   if (res.added.familyGroups) parts.push(`${res.added.familyGroups} 个家人分组`)
   if (!parts.length) { toast('没有可恢复的新内容', 'warn'); return }
-  store.data = res.data
-  persist()
+  if (!saveAccountData(res.data).ok) { toast('备份没有保存到本机，请保留备份文件并重试', 'err'); return }
   toast(`已恢复 ${parts.join('、')}${res.skipped ? `，跳过 ${res.skipped} 条重复或无效` : ''}`, 'ok')
 }
 

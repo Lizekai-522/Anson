@@ -107,6 +107,7 @@ const codeDigits = computed(() => String((result.value && result.value.code6) ||
 function generate() {
   const t = trip.value
   if (!t) return
+  result.value = null
   const now = Date.now()
   const chosen = selectedFamily()
   // 天气是按「段」查好的：贴到对应卡片上，随链接一起发给长辈
@@ -137,7 +138,7 @@ function generate() {
   const url = buildShareUrl(token)
   const code6 = makeShareCode(payload)
   const contactNames = chosen.map((f) => f.name)
-  saveShare({
+  const saved = saveShare({
     id: uid('sh'),
     tripId: t.id,
     token,
@@ -147,6 +148,7 @@ function generate() {
     title: t.title,
     contactNames,
   })
+  if (!saved.ok) { toast('分享记录没有保存到本机，请清理空间后重试', 'err'); return }
   // 二维码：M 级优先，装不下退 L 级（容量更大）；两级都超上限才算装不下，
   // 那就让「复制链接 / 6 位码 / 发短信邮件」三条路兜底，不让分享卡在二维码上。
   const info = qrInfo(url, { box: QR_BOX })
@@ -171,6 +173,7 @@ function inviteRecords() {
 function generateInvite() {
   const t = trip.value
   if (!t) return
+  inviteResult.value = null
   const now = Date.now()
   const payload = {
     eid: uid('inv'),
@@ -183,7 +186,8 @@ function generateInvite() {
   const token = encodeTripInvite(payload)
   const url = buildInviteUrl(token)
   const code6 = makeInviteCode(payload)
-  saveInvite({ id: uid('inv'), tripId: t.id, token, code6, createdAt: now, exp: payload.exp, title: t.title })
+  const saved = saveInvite({ id: uid('inv'), tripId: t.id, token, code6, createdAt: now, exp: payload.exp, title: t.title })
+  if (!saved.ok) { toast('邀请记录没有保存到本机，请清理空间后重试', 'err'); return }
   // 二维码与长辈分享同规格：M 级优先，装不下退 L 级；两级都超上限就退回「复制链接 / 6 位码」兜底。
   const info = qrInfo(url, { box: QR_BOX })
   inviteResult.value = { url, code6, exp: payload.exp, dataUrl: info ? info.dataUrl : null, qr: info }

@@ -127,7 +127,7 @@ function doImport() {
     createdAt: now,
     updatedAt: now,
   }
-  upsertTrip(trip)
+  if (!upsertTrip(trip).ok) { toast('没有保存到本机，请保留邀请链接后重试', 'err'); return }
   importedTripId.value = trip.id
   toast('行程已加入你的列表', 'ok')
   navigate('/trip/' + trip.id)
