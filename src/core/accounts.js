@@ -184,6 +184,42 @@ export function logout() {
   detachAccount()
 }
 
+// 修改本机账号资料（姓名 / 邮箱 / 手机号 / 头像）：
+// 校验格式 + 排除自己后的唯一性，避免改完把「按名字/邮箱/手机号登录」弄成歧义。
+// 返回 { ok, errors?, account? }；成功时同步刷新 store.account，顶栏与「我的」立即跟着变。
+export function updateAccount(id, patch) {
+  const accounts = loadAccounts()
+  const i = accounts.findIndex((a) => a.id === id)
+  if (i < 0) return { ok: false, errors: { name: '账号不存在' } }
+  const next = { ...accounts[i] }
+  const errors = {}
+  for (const field of ['name', 'email', 'phone']) {
+    if (patch[field] === undefined) continue
+    const v = String(patch[field] || '').trim()
+    const bad = rules[field](v)
+    if (bad) { errors[field] = bad; continue }
+    const dup = accounts.find((a) => a.id !== id && (
+      (field === 'name' && a.name.toLowerCase() === v.toLowerCase()) ||
+      (field === 'email' && a.email.toLowerCase() === v.toLowerCase()) ||
+      (field === 'phone' && a.phone === v)
+    ))
+    if (dup) {
+      errors[field] = field === 'name' ? '这个账号名已经被用了'
+        : field === 'email' ? '这个邮箱已经注册过' : '这个手机号已经注册过'
+      continue
+    }
+    next[field] = v
+  }
+  if (patch.avatar !== undefined) next.avatar = String(patch.avatar || '')
+  if (Object.keys(errors).length) return { ok: false, errors }
+  accounts.splice(i, 1, next)
+  saveAccounts(accounts)
+  if (store.account && store.account.id === id) {
+    store.account = { id: next.id, name: next.name, email: next.email, phone: next.phone, avatar: next.avatar || '' }
+  }
+  return { ok: true, account: publicAccount(next) }
+}
+
 export function publicAccount(a) {
-  return { id: a.id, name: a.name, email: a.email, phone: a.phone }
+  return { id: a.id, name: a.name, email: a.email, phone: a.phone, avatar: a.avatar || '' }
 }

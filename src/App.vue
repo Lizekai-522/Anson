@@ -43,6 +43,35 @@ const mainRef = ref(null)
 // 顶栏右侧只放"我是谁"这一个身份入口（导航里已有「我的」页，不再重复第二个同名按钮）
 const initial = computed(() => String((store.account && store.account.name) || '?').slice(0, 1))
 const isElder = computed(() => route.path === '/e' || route.path.startsWith('/e/'))
+// 顶栏头像：账号传了自定义头像就显示图片，否则退回名字首字
+const accountAvatar = computed(() => (store.account && store.account.avatar) || '')
+
+// ---- 「返回上一页」：详情类页面统一在页头（page-head）上方给一个返回按钮 ----
+// 子女端点进详情后往往只想去上一页，导航栏里并没有这个入口。
+// 这里记录子女端在站内的浏览轨迹：返回时优先回到真正的上一页；直接打开链接（没有轨迹）时回退到父级页。
+const backStack = ref([])
+let skipPush = false
+watch(() => route.path, (path, prev) => {
+  if (isElder.value) return
+  if (skipPush) { skipPush = false; return }
+  if (!prev || prev === path) return
+  backStack.value.push(prev)
+  if (backStack.value.length > 50) backStack.value.shift()
+})
+// 需要返回的页面：从列表点进来的详情/子页。导航页（行程/导入/家人/我的）有自己的导航入口，不重复给。
+const SUB_PAGE_RE = /^\/(trip|share)\/|^\/receive(?:\/|$)|^\/model$/
+const showBack = computed(() => !isElder.value && !!store.account && SUB_PAGE_RE.test(route.path))
+function parentPath(path) {
+  const s = path.match(/^\/share\/([^/]+)/)
+  return s ? '/trip/' + s[1] : '/home'
+}
+function goBack() {
+  const prev = backStack.value.pop()
+  const target = prev && prev !== route.path ? prev : parentPath(route.path)
+  if (target === route.path) return
+  skipPush = true // 返回本身不记进轨迹，避免「返回后再返回」跳回刚离开的页
+  navigate(target)
+}
 // 页面切换的入场动效：只作用于子女端内容区（长辈端一行都不动）
 watch(() => route.path, () => {
   if (isElder.value) return
@@ -186,7 +215,10 @@ onBeforeUnmount(() => {
             :aria-label="'我的账号：' + store.account.name"
             @click="navigate('/profile')"
           >
-            <span class="who-avatar" aria-hidden="true">{{ initial }}</span>
+            <span class="who-avatar" aria-hidden="true">
+              <img v-if="accountAvatar" :src="accountAvatar" alt="" />
+              <template v-else>{{ initial }}</template>
+            </span>
             <span class="who">{{ store.account.name }}</span>
           </button>
         </div>
@@ -194,6 +226,12 @@ onBeforeUnmount(() => {
     </header>
 
     <main id="main-content" class="main" ref="mainRef" tabindex="-1">
+      <!-- 返回上一页：详情类页面统一放在各自 page-head 的上方 -->
+      <div v-if="showBack" class="page-back">
+        <button type="button" class="back-btn" @click="goBack">
+          <span class="back-arrow" aria-hidden="true">←</span>返回上一页
+        </button>
+      </div>
       <component
         v-if="matched && store.ready"
         :is="matched.comp"
@@ -317,7 +355,9 @@ onBeforeUnmount(() => {
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
+  overflow: hidden;
 }
+.who-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .who { font-size: 13px; color: var(--c-ink-1); }
 
 .main {
@@ -328,6 +368,22 @@ onBeforeUnmount(() => {
   padding: 26px 20px 80px;
 }
 .main:focus { outline: none; }
+
+/* 返回上一页：详情页页头上方的统一入口 */
+.page-back { margin-bottom: 14px; }
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 7px 12px;
+  border: 1px solid var(--c-line);
+  border-radius: 999px;
+  background: var(--c-card);
+  color: var(--c-ink-1);
+  font-size: 14px;
+}
+.back-btn:hover { border-color: var(--c-brand); color: var(--c-brand); background: var(--c-bg-1); }
+.back-arrow { font-size: 16px; line-height: 1; }
 
 .toasts {
   position: fixed;

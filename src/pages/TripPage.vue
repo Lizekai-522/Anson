@@ -68,6 +68,26 @@ const sortedIssues = computed(() => {
   arr.sort((a, b) => (LEVEL_RANK[a.level] ?? 3) - (LEVEL_RANK[b.level] ?? 3))
   return arr
 })
+// 默认折叠：条数一多就糊一屏，用户要看时自己展开。
+const issuesOpen = ref(false)
+const issueCounts = computed(() => {
+  const c = { error: 0, warn: 0, info: 0 }
+  for (const iss of sortedIssues.value) c[iss.level] = (c[iss.level] || 0) + 1
+  return c
+})
+// 点某条问题 → 滚到对应行程卡片并高亮两秒，方便一眼找到是哪一段。
+const flashId = ref('')
+let flashTimer = null
+function focusIssue(iss) {
+  const id = iss && iss.segId
+  if (!id) return
+  const el = document.getElementById('seg-' + id)
+  if (!el) return
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  flashId.value = id
+  clearTimeout(flashTimer)
+  flashTimer = setTimeout(() => { flashId.value = '' }, 2000)
+}
 
 // ---- 段展示辅助 ----
 const TYPE_META = {
@@ -441,6 +461,7 @@ watch(elderRoom, () => {
 onMounted(() => { nowTimer = setInterval(() => { nowMs.value = Date.now() }, 30000) })
 onBeforeUnmount(() => {
   stopElderSync()
+  clearTimeout(flashTimer)
   if (nowTimer) { clearInterval(nowTimer); nowTimer = null }
 })
 </script>
@@ -494,16 +515,38 @@ onBeforeUnmount(() => {
       </section>
 
       <section v-if="sortedIssues.length" class="issue-box" aria-label="行程问题汇总">
-        <p
-          v-for="(iss, ii) in sortedIssues"
-          :key="ii"
-          class="issue"
-          :class="'issue-' + iss.level"
-          :role="iss.level === 'error' ? 'alert' : undefined"
+        <button
+          type="button"
+          class="issue-head"
+          :aria-expanded="issuesOpen"
+          @click="issuesOpen = !issuesOpen"
         >
-          <span class="issue-msg">{{ iss.message }}</span>
-          <span v-if="issueLabel(iss.code)" class="tag">{{ issueLabel(iss.code) }}</span>
-        </p>
+          <span class="issue-head-main">
+            <span class="issue-head-title">行程问题 · {{ sortedIssues.length }} 条</span>
+            <span class="issue-chips">
+              <span v-if="issueCounts.error" class="tag tag-err">{{ issueCounts.error }} 个要处理</span>
+              <span v-if="issueCounts.warn" class="tag tag-warn">{{ issueCounts.warn }} 个要确认</span>
+              <span v-if="issueCounts.info" class="tag">{{ issueCounts.info }} 个待补齐</span>
+            </span>
+          </span>
+          <span class="issue-caret">{{ issuesOpen ? '收起' : '展开' }}</span>
+        </button>
+        <ul v-if="issuesOpen" class="issue-list">
+          <li v-for="(iss, ii) in sortedIssues" :key="ii">
+            <button
+              type="button"
+              class="issue"
+              :class="'issue-' + iss.level"
+              @click="focusIssue(iss)"
+            >
+              <span class="issue-msg">{{ iss.message }}</span>
+              <span class="issue-right">
+                <span v-if="issueLabel(iss.code)" class="tag">{{ issueLabel(iss.code) }}</span>
+                <span v-if="iss.segId" class="issue-locate">定位到这一段 →</span>
+              </span>
+            </button>
+          </li>
+        </ul>
       </section>
 
       <div v-if="canAssist" class="assist-bar">
@@ -587,7 +630,7 @@ onBeforeUnmount(() => {
       </div>
 
       <ul class="seg-list">
-        <li v-for="s in trip.segments" :key="s.id" class="paper-card seg" :class="{ 'seg-warn': s.manualConfirm }">
+        <li v-for="s in trip.segments" :key="s.id" :id="'seg-' + s.id" class="paper-card seg" :class="{ 'seg-warn': s.manualConfirm, 'seg-flash': flashId === s.id }">
           <div v-if="s.manualConfirm" class="seg-alert">这一条待人工确认，建议对照原始短信</div>
 
           <div class="seg-body">
@@ -764,11 +807,40 @@ onBeforeUnmount(() => {
 .title-input:focus { border-color: var(--c-brand); background: var(--c-card); }
 .head-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
-.issue-box { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.issue-box { display: flex; flex-direction: column; margin-bottom: 16px; }
+.issue-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-m);
+  background: var(--c-card);
+  text-align: left;
+}
+.issue-head:hover { border-color: rgba(154, 107, 8, 0.5); }
+.issue-head-main { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.issue-head-title { font-size: 14px; font-weight: 700; color: var(--c-ink-0); }
+.issue-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.issue-caret { flex: none; font-size: 13px; font-weight: 600; color: var(--c-brand); }
+.issue-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 .issue {
+  width: 100%;
   margin: 0;
   padding: 8px 12px;
   font-size: 14px;
+  text-align: left;
+  border: 0;
   border-left: 3px solid var(--c-line);
   border-radius: 0 var(--r-s) var(--r-s) 0;
   background: var(--c-bg-1);
@@ -778,7 +850,11 @@ onBeforeUnmount(() => {
   justify-content: space-between;
   gap: 10px;
   flex-wrap: wrap;
+  cursor: pointer;
 }
+.issue:hover { background: var(--c-bg-2); }
+.issue-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; flex: none; }
+.issue-locate { font-size: 12px; color: var(--c-brand); white-space: nowrap; }
 .issue-error {
   border-left-color: var(--c-err);
   color: var(--c-err);
@@ -818,8 +894,14 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 12px;
 }
-.seg { padding: 0; overflow: hidden; }
+.seg { padding: 0; overflow: hidden; scroll-margin-top: 80px; }
 .seg-warn { border-color: rgba(154, 107, 8, 0.45); }
+/* 从问题条目点进来时高亮这一段，方便一眼锁定 */
+.seg-flash { animation: seg-flash 1s ease-out 2; }
+@keyframes seg-flash {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(11, 107, 69, 0); }
+  30% { box-shadow: 0 0 0 3px rgba(11, 107, 69, 0.5); }
+}
 .seg-alert {
   padding: 8px 16px;
   font-size: 13px;

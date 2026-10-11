@@ -1,9 +1,9 @@
 <script setup>
 // 我的：账号信息、诚实声明、数据备份/清空、退出登录、关于。
-import { ref, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, onBeforeUnmount } from 'vue'
 import { navigate } from '../core/router.js'
 import { store, toast, persist, mergeBackup } from '../core/store.js'
-import { ACCOUNT_HINT, logout } from '../core/accounts.js'
+import { ACCOUNT_HINT, logout, updateAccount } from '../core/accounts.js'
 
 defineProps({ params: { type: Object, default: () => ({}) } })
 
@@ -15,8 +15,89 @@ function fmt(d) {
   return `${y}-${m}-${day}`
 }
 
-const account = store.account || { name: '?', email: '', phone: '' }
-const initial = String(account.name || '?').slice(0, 1)
+// 账号是响应式的：改名/换头像后顶栏与这里都立即更新
+const account = computed(() => store.account || { name: '?', email: '', phone: '', avatar: '' })
+const initial = computed(() => String(account.value.name || '?').slice(0, 1))
+
+// ---- 资料编辑 ----
+const editing = ref(false)
+const form = reactive({ name: '', email: '', phone: '' })
+const errs = reactive({ name: '', email: '', phone: '' })
+function startEdit() {
+  form.name = account.value.name || ''
+  form.email = account.value.email || ''
+  form.phone = account.value.phone || ''
+  errs.name = errs.email = errs.phone = ''
+  editing.value = true
+}
+function cancelEdit() {
+  errs.name = errs.email = errs.phone = ''
+  editing.value = false
+}
+function saveProfile() {
+  const a = store.account
+  if (!a) return
+  const res = updateAccount(a.id, { name: form.name, email: form.email, phone: form.phone })
+  if (!res.ok) {
+    errs.name = (res.errors && res.errors.name) || ''
+    errs.email = (res.errors && res.errors.email) || ''
+    errs.phone = (res.errors && res.errors.phone) || ''
+    toast('有几处需要改一下', 'warn')
+    return
+  }
+  errs.name = errs.email = errs.phone = ''
+  editing.value = false
+  toast('资料已保存', 'ok')
+}
+
+// ---- 头像上传：裁成正方形缩到 256px 再存，避免大图撑爆 localStorage ----
+const avatarInput = ref(null)
+function pickAvatar() { avatarInput.value?.click() }
+function readAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result))
+    r.onerror = reject
+    r.readAsDataURL(file)
+  })
+}
+function shrinkSquare(dataUrl, size) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => {
+      const c = document.createElement('canvas')
+      c.width = size; c.height = size
+      const ctx = c.getContext('2d')
+      const s = Math.min(img.width, img.height) // 居中取最大的正方形
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size)
+      resolve(c.toDataURL('image/jpeg', 0.85))
+    }
+    img.onerror = () => resolve(dataUrl)
+    img.src = dataUrl
+  })
+}
+async function onAvatarPicked(e) {
+  const file = e.target.files && e.target.files[0]
+  e.target.value = '' // 清空 value，允许连续选同一张
+  if (!file) return
+  if (!/^image\//.test(file.type)) { toast('请选一张图片', 'warn'); return }
+  try {
+    const raw = await readAsDataUrl(file)
+    const small = await shrinkSquare(raw, 256)
+    const a = store.account
+    const res = updateAccount(a.id, { avatar: small })
+    if (!res.ok) { toast('头像保存失败', 'err'); return }
+    toast('头像已更新', 'ok')
+  } catch {
+    toast('头像读取失败', 'err')
+  }
+}
+function removeAvatar() {
+  const a = store.account
+  if (!a || !a.avatar) return
+  updateAccount(a.id, { avatar: '' })
+  toast('已恢复默认头像', 'info')
+}
 
 // ---- 导出数据备份 ----
 function exportBackup() {
@@ -130,11 +211,61 @@ onBeforeUnmount(() => clearTimeout(confirmTimer))
     </header>
 
     <section class="paper-card account-card">
-      <span class="avatar" aria-hidden="true">{{ initial }}</span>
+      <div class="avatar-wrap">
+        <button
+          type="button"
+          class="avatar"
+          :class="{ 'avatar-img': account.avatar }"
+          aria-label="更换头像"
+          @click="pickAvatar"
+        >
+          <img v-if="account.avatar" :src="account.avatar" alt="当前头像" />
+          <span v-else aria-hidden="true">{{ initial }}</span>
+        </button>
+        <input
+          ref="avatarInput"
+          class="visually-hidden"
+          type="file"
+          accept="image/*"
+          aria-label="选择头像图片"
+          @change="onAvatarPicked"
+        />
+        <div class="avatar-actions">
+          <button type="button" class="btn btn-ghost btn-sm" @click="pickAvatar">上传头像</button>
+          <button v-if="account.avatar" type="button" class="btn btn-ghost btn-sm" @click="removeAvatar">恢复默认</button>
+        </div>
+      </div>
+
       <div class="account-info">
-        <h2 class="account-name">{{ account.name }}</h2>
-        <p v-if="account.email" class="account-line">{{ account.email }}</p>
-        <p v-if="account.phone" class="account-line">{{ account.phone }}</p>
+        <template v-if="!editing">
+          <div class="account-head">
+            <h2 class="account-name">{{ account.name }}</h2>
+            <button type="button" class="btn btn-ghost btn-sm" @click="startEdit">编辑资料</button>
+          </div>
+          <p v-if="account.email" class="account-line">{{ account.email }}</p>
+          <p v-if="account.phone" class="account-line">{{ account.phone }}</p>
+        </template>
+        <form v-else class="account-form" @submit.prevent="saveProfile">
+          <div class="form-field">
+            <label for="acc-name">账号名</label>
+            <input id="acc-name" v-model="form.name" type="text" autocomplete="off" />
+            <small v-if="errs.name" class="form-err">{{ errs.name }}</small>
+          </div>
+          <div class="form-field">
+            <label for="acc-email">邮箱</label>
+            <input id="acc-email" v-model="form.email" type="email" autocomplete="off" />
+            <small v-if="errs.email" class="form-err">{{ errs.email }}</small>
+          </div>
+          <div class="form-field">
+            <label for="acc-phone">手机号</label>
+            <input id="acc-phone" v-model="form.phone" type="tel" autocomplete="off" />
+            <small v-if="errs.phone" class="form-err">{{ errs.phone }}</small>
+          </div>
+          <div class="account-form-actions">
+            <button type="submit" class="btn btn-primary btn-sm">保存</button>
+            <button type="button" class="btn btn-ghost btn-sm" @click="cancelEdit">取消</button>
+          </div>
+        </form>
       </div>
     </section>
 
@@ -235,15 +366,17 @@ onBeforeUnmount(() => clearTimeout(confirmTimer))
 <style scoped>
 .account-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
+  flex-wrap: wrap;
   padding: 18px;
   margin-bottom: 14px;
 }
+.avatar-wrap { flex: none; display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .avatar {
-  flex: none;
   width: 56px;
   height: 56px;
+  padding: 0;
   border-radius: 50%;
   background: var(--c-bg-2);
   color: var(--c-brand);
@@ -252,9 +385,22 @@ onBeforeUnmount(() => clearTimeout(confirmTimer))
   align-items: center;
   justify-content: center;
   box-shadow: inset 0 0 0 1px var(--c-line);
+  overflow: hidden;
+  cursor: pointer;
 }
+.avatar:hover { box-shadow: inset 0 0 0 2px var(--c-brand); }
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.account-info { flex: 1; min-width: 200px; }
+.account-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .account-name { margin: 0; font-size: 20px; letter-spacing: 1px; }
 .account-line { margin: 3px 0 0; font-size: 14px; color: var(--c-ink-2); }
+
+.account-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.form-field label { display: block; font-size: 13px; color: var(--c-ink-1); margin-bottom: 4px; }
+.form-field input { font-size: 14px; padding: 7px 10px; }
+.form-err { display: block; margin-top: 4px; font-size: 12px; color: var(--c-err); }
+.account-form-actions { grid-column: 1 / -1; display: flex; gap: 8px; }
 
 .hint-card {
   padding: 14px 18px;

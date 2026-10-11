@@ -116,7 +116,7 @@ export function initStore() {
     const accounts = safeGet(KEYS.accounts, [])
     const acc = accounts.find((a) => a.id === session.accountId)
     if (acc) {
-      store.account = { id: acc.id, name: acc.name, email: acc.email, phone: acc.phone }
+      store.account = { id: acc.id, name: acc.name, email: acc.email, phone: acc.phone, avatar: acc.avatar || '' }
       loadDataBucket(acc.id)
     } else {
       safeDel(KEYS.session)
@@ -135,7 +135,7 @@ export function initStore() {
 // 账号登录/注册成功后调用：迁移旧数据 + 挂载该账号数据桶
 export function attachAccount(account) {
   migrateLegacyData(account.id)
-  store.account = { id: account.id, name: account.name, email: account.email, phone: account.phone }
+  store.account = { id: account.id, name: account.name, email: account.email, phone: account.phone, avatar: account.avatar || '' }
   loadDataBucket(account.id)
 }
 

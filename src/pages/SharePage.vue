@@ -158,6 +158,8 @@ function generate() {
 
 // ---- 区2.5：分享给其他子女（自包含链接 + 6 位码，对方导入成自己的新行程）----
 const inviteResult = ref(null)
+// 逐位拆开是为了让 GSAP 一位一位"翻"进来，与长辈分享的 6 位码同一套呈现
+const inviteDigits = computed(() => String((inviteResult.value && inviteResult.value.code6) || '').split(''))
 const inviteSending = ref('')
 const inviteNote = ref('')
 const inviteErr = ref('')
@@ -182,7 +184,9 @@ function generateInvite() {
   const url = buildInviteUrl(token)
   const code6 = makeInviteCode(payload)
   saveInvite({ id: uid('inv'), tripId: t.id, token, code6, createdAt: now, exp: payload.exp, title: t.title })
-  inviteResult.value = { url, code6, exp: payload.exp }
+  // 二维码与长辈分享同规格：M 级优先，装不下退 L 级；两级都超上限就退回「复制链接 / 6 位码」兜底。
+  const info = qrInfo(url, { box: QR_BOX })
+  inviteResult.value = { url, code6, exp: payload.exp, dataUrl: info ? info.dataUrl : null, qr: info }
   inviteNote.value = ''
   inviteErr.value = ''
   toast('子女邀请链接已生成', 'ok')
@@ -532,12 +536,28 @@ function shareActive(s) {
         <button class="btn btn-primary" @click="generateInvite">生成子女邀请链接</button>
 
         <div v-if="inviteResult" class="result">
+          <div class="qr-card">
+            <img v-if="inviteResult.dataUrl" :src="inviteResult.dataUrl" :width="QR_BOX" :height="QR_BOX" alt="子女邀请二维码" />
+            <div v-else class="qr-fallback">
+              <p class="qr-fallback-title">这条邀请太长，二维码装不下</p>
+              <p class="qr-fallback-hint">把下面的链接或 6 位码发给他也一样：对方登录安程后打开链接、或输码，都能把行程复制过去。</p>
+            </div>
+          </div>
+          <p v-if="inviteResult.qr && inviteResult.qr.pxPerModule < 2.4" class="qr-dense">
+            行程较长，码比较密（每格 {{ inviteResult.qr.pxPerModule.toFixed(2) }}px）；扫不动就复制链接或直接发 6 位码。
+          </p>
+
           <div class="link-row">
             <label class="visually-hidden" for="invite-url">子女邀请链接</label>
             <input id="invite-url" class="link-input" type="text" readonly :value="inviteResult.url" @focus="$event.target.select()" />
             <button class="btn btn-ghost" @click="copyLink(inviteResult.url)">复制链接</button>
           </div>
-          <p class="invite-code">6 位码：<span class="num">{{ inviteResult.code6 }}</span></p>
+          <div class="code-row">
+            <span class="code6 num">
+              <span v-for="(d, i) in inviteDigits" :key="i" class="code-digit">{{ d }}</span>
+            </span>
+            <p class="code-hint">对方在安程输这 6 位码就能接收，或直接打开上面的链接</p>
+          </div>
           <p class="block-hint">有效期至 {{ fmt(new Date(inviteResult.exp)) }}，和上面的分享同一天数。</p>
 
           <div class="send-row">
@@ -787,8 +807,6 @@ function shareActive(s) {
   color: var(--c-ink-0);
   overflow-wrap: anywhere;
 }
-.invite-code { margin: 0; font-size: 15px; color: var(--c-ink-0); }
-.invite-code .num { color: var(--c-brand); font-weight: 700; letter-spacing: 2px; }
 .share-fam { color: var(--c-ink-2); }
 .invite-history { margin-top: 14px; }
 </style>
