@@ -430,7 +430,7 @@ async function triggerSos() {
   const text = buildSosText({ name, tripTitle, lat: geo && geo.lat, lng: geo && geo.lng })
   const hasLoc = !!(geo && hasLocation(geo.lat, geo.lng))
   // 让子女端实时看到「长辈按了紧急求助」（尽力而为）
-  push(room.value, [makeEvent('sos', '', { lat: geo ? geo.lat : null, lng: geo ? geo.lng : null, hasLoc })])
+  push(room.value, [makeEvent('sos', '', { hasLoc })])
   if (!c || !c.phone) {
     sos.value = { pressing: false, progress: 0, result: { noContact: true, text } }
     return

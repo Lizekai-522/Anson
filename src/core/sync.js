@@ -12,6 +12,7 @@
 // 隐私：位置只作为 presence 上报，服务端只保留最新一份，不落轨迹。
 import { KEYS, safeGet, safeSet } from './store.js'
 import { fnv1a } from './share-codec.js'
+import { minimizeSyncEvent } from './locationPrivacy.js'
 
 const CH_PREFIX = 'ptb-sync-'
 const POLL_MS = 4000
@@ -65,7 +66,7 @@ function readMirror(room) {
   const raw = safeGet(KEYS.syncMirror(room), null)
   if (!raw || typeof raw !== 'object') return { events: [], presence: null }
   return {
-    events: Array.isArray(raw.events) ? raw.events.filter((e) => e && typeof e.id === 'string') : [],
+    events: Array.isArray(raw.events) ? raw.events.filter((e) => e && typeof e.id === 'string').map(minimizeSyncEvent) : [],
     presence: raw.presence && typeof raw.presence === 'object' ? raw.presence : null,
   }
 }
@@ -77,7 +78,7 @@ function mergeIntoMirror(room, events, presence) {
   for (const e of events || []) {
     if (!e || typeof e.id !== 'string' || seen.has(e.id)) continue
     seen.add(e.id)
-    next.push(e)
+    next.push(minimizeSyncEvent(e))
   }
   const trimmed = next.slice(Math.max(0, next.length - MIRROR_CAP))
   safeSet(KEYS.syncMirror(room), { events: trimmed, presence: presence || cur.presence })
@@ -95,7 +96,7 @@ function channel(room) {
 
 // ---- 上报（尽力而为）----
 export async function push(room, events, presence) {
-  const list = (events || []).filter(Boolean)
+  const list = (events || []).filter(Boolean).map(minimizeSyncEvent)
   if (!room || !list.length) { if (presence) await pushPresence(room, presence); return false }
   mergeIntoMirror(room, list, presence)
   const ch = channel(room)
@@ -143,7 +144,7 @@ export function subscribe(room, onChange) {
     for (const e of events || []) {
       if (!e || typeof e.id !== 'string' || seen.has(e.id)) continue
       seen.add(e.id)
-      fresh.push(e)
+      fresh.push(minimizeSyncEvent(e))
     }
     if (!fresh.length && !presence) return
     try { onChange({ events: fresh, presence: presence || null, mode: syncMode() }) } catch {}

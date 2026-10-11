@@ -10,6 +10,7 @@
 // 否则刷新后拿『无账号』去读桶，读到空的，用户被踢回身份选择页。
 import { reactive } from 'vue'
 import { fnv1a } from './share-codec.js'
+import { scrubStoredSyncEvents } from './locationPrivacy.js'
 
 export const KEYS = {
   accounts: 'ptb:accounts',
@@ -111,6 +112,7 @@ function collectValidRooms() {
 
 // ---- 会话恢复 + 数据桶挂载（顺序不可颠倒）----
 export function initStore() {
+  try { scrubStoredSyncEvents(localStorage) } catch {}
   const session = safeGet(KEYS.session, null)
   if (session && session.accountId) {
     const accounts = safeGet(KEYS.accounts, [])

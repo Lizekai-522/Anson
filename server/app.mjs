@@ -14,6 +14,7 @@
 // 安全：密钥只在服务端；默认只接受同源请求；
 // 设了 NOTIFY_TOKEN / MODEL_PROXY_TOKEN / SYNC_TOKEN 才要求 Bearer。
 // 隐私：同步房间只存内存（重启即清），位置只保留最新一份，不留轨迹。
+import { minimizeSyncEvent } from '../src/core/locationPrivacy.js'
 import http from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -85,7 +86,7 @@ function cleanEvent(e) {
     type,
     segId: e.segId == null ? '' : String(e.segId).slice(0, 64),
     at: Number.isFinite(at) ? at : Date.now(),
-    data: e.data && typeof e.data === 'object' ? e.data : null,
+    data: e.data && typeof e.data === 'object' ? minimizeSyncEvent(e).data : null,
   }
 }
 
@@ -181,11 +182,12 @@ export function createSyncStore({ now = () => Date.now() } = {}) {
       const r = get(room)
       const s = Number.isFinite(Number(since)) ? Number(since) : 0
       r.lastAt = now()
+      r.events = r.events.map(minimizeSyncEvent) // scrub records produced by an older writer
       const alerts = arriveAlerts(r)
       const out = {
         ok: true,
         cursor: r.seq,
-        events: r.events.filter((e) => e.seq > s),
+        events: r.events.filter((e) => e.seq > s).map(minimizeSyncEvent),
         presence: r.presence,
       }
       // 只在真的超时才带上，正常情况响应保持原样（前端无感）

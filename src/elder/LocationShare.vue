@@ -57,7 +57,7 @@ function onPosition(p) {
   lastSent = now
   updatedAt.value = now
   note.value = '正在让子女看到你的位置'
-  push(props.room, [makeEvent('location', '', { lat: presence.lat, lng: presence.lng })], presence)
+  push(props.room, [makeEvent('location', '')], presence)
 }
 
 function onError(e) {
@@ -90,7 +90,7 @@ function stopShare() {
   stopWatch()
   sharing.value = false
   lastSent = 0
-  note.value = '已经停止共享位置'
+  note.value = '已经停止共享位置，子女仍能看到最后一次位置'
   push(props.room, [makeEvent('loc-off', '')])
 }
 
