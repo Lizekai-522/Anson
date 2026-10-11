@@ -73,7 +73,7 @@ function eventLines(seg, stamp) {
     return [...lines, ...tail]
   }
 
-  if (!seg.date || !seg.departTime || !ride) {
+  if (seg.manualConfirm || !seg.date || !seg.departTime || !ride) {
     // 缺时刻：退化成全天事件，保证能导进去（不硬编一个假时间）
     if (!seg.date) return null
     const lines = [
@@ -95,14 +95,12 @@ function eventLines(seg, stamp) {
     if (seg.arriveNextDay) endDate = addDays(seg.date, 1)
     else if (seg.arriveTime < seg.departTime) endDate = addDays(seg.date, 1)
   }
-  const endStamp = seg.arriveTime
-    ? compactDate(endDate) + 'T' + compactTime(seg.arriveTime)
-    : compactDate(addDays(seg.date, 0)) + 'T' + compactTime(add2h(seg.departTime))
+  const endStamp = seg.arriveTime ? compactDate(endDate) + 'T' + compactTime(seg.arriveTime) : null
 
   const lines = [
     ...head,
     `DTSTART:${startStamp}`,
-    `DTEND:${endStamp}`,
+    ...(endStamp ? [`DTEND:${endStamp}`] : []),
     fold(`SUMMARY:${esc(segTitle(seg))}`),
   ]
   const loc = [seg.from, seg.to].filter(Boolean).join(' → ')
@@ -120,12 +118,6 @@ function eventLines(seg, stamp) {
     )
   }
   return [...lines, ...tail]
-}
-
-function add2h(t) {
-  const [h, m] = String(t).split(':').map(Number)
-  const total = (h * 60 + (m || 0) + 120) % 1440
-  return pad2(Math.floor(total / 60)) + ':' + pad2(total % 60)
 }
 
 // 纯函数：给单测直接断言字符串结构
