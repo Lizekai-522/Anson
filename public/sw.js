@@ -1,7 +1,7 @@
 // 安程 Service Worker：只做同源 GET 的运行时缓存。
 // 目的很实在：长辈在弱网/断网时，已经打开过的行程页还能再看一遍。
 // 不缓存跨域请求；不拦截非 GET；版本号变了就丢旧缓存。
-const CACHE = 'ptb-v3'
+const CACHE = 'ptb-v4'
 const CORE = ['./', './index.html', './manifest.webmanifest']
 
 // 安装时预缓存应用外壳：核心文件 + 从 index.html 里解析出的带哈希 JS/CSS。
@@ -37,6 +37,8 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET') return
   const url = new URL(req.url)
   if (url.origin !== self.location.origin) return
+  // Live API responses must never enter the offline shell cache.
+  if (url.pathname.startsWith('/api/')) return
   const isNav = req.mode === 'navigate'
 
   e.respondWith((async () => {

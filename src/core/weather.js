@@ -117,7 +117,7 @@ export async function fetchWeather(city, { fetchImpl, timeoutMs = 5000, base = '
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null
   const timer = ctl ? setTimeout(() => ctl.abort(), timeoutMs) : null
   try {
-    const r = await doFetch(base + '/api/weather?city=' + encodeCityParam(name), ctl ? { signal: ctl.signal } : undefined)
+    const r = await doFetch(base + '/api/weather?city=' + encodeCityParam(name), { cache: 'no-store', ...(ctl ? { signal: ctl.signal } : {}) })
     if (!r || !r.ok) return null
     const data = await r.json().catch(() => null)
     return normalizeWeather(data)

@@ -35,7 +35,7 @@ export function activeProviders(env = process.env) {
 }
 
 function json(res, code, body) {
-  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8' })
+  res.writeHead(code, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
   res.end(JSON.stringify(body))
 }
 

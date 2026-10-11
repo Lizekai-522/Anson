@@ -41,7 +41,7 @@ export function buildMailtoHref({ to, subject, text }) {
 // 服务端配了哪种 provider？没配返回 null（= 走通道一）
 export async function probeChannel(kind, { base = '' } = {}) {
   try {
-    const r = await fetch(base + '/api/notify/config', { headers: { accept: 'application/json' } })
+    const r = await fetch(base + '/api/notify/config', { cache: 'no-store', headers: { accept: 'application/json' } })
     if (!r.ok) return null
     const cfg = await r.json()
     const via = kind === KIND_SMS ? cfg && cfg.sms : cfg && cfg.email

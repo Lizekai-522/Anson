@@ -48,7 +48,7 @@ export async function probeSync({ now = Date.now(), force = false } = {}) {
   try {
     const ctl = new AbortController()
     const timer = setTimeout(() => ctl.abort(), PING_TIMEOUT_MS)
-    const r = await fetch('/api/sync/ping', { headers: { accept: 'application/json' }, signal: ctl.signal })
+    const r = await fetch('/api/sync/ping', { cache: 'no-store', headers: { accept: 'application/json' }, signal: ctl.signal })
     clearTimeout(timer)
     const data = await r.json().catch(() => null)
     ok = !!(r.ok && data && data.ok)
@@ -101,15 +101,17 @@ export async function push(room, events, presence) {
   const ch = channel(room)
   if (ch) { try { ch.postMessage({ events: list, presence: presence || null }) } catch {} }
   if (pingCache.at === 0) await probeSync()
-  if (!syncMode()) return false
+  if (syncMode() !== 'server') return false
   try {
-    await fetch('/api/sync/' + encodeURIComponent(room) + '/push', {
+    const response = await fetch('/api/sync/' + encodeURIComponent(room) + '/push', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ events: list, presence: presence || null }),
     })
+    const data = await response.json().catch(() => null)
+    if (!response.ok || !data?.ok) { pingCache = { at: 0, ok: false }; return false }
     return true
-  } catch { return false }
+  } catch { pingCache = { at: 0, ok: false }; return false }
 }
 
 async function pushPresence(room, presence) {
@@ -118,15 +120,17 @@ async function pushPresence(room, presence) {
   const ch = channel(room)
   if (ch) { try { ch.postMessage({ events: [], presence }) } catch {} }
   if (pingCache.at === 0) await probeSync()
-  if (!syncMode()) return false
+  if (syncMode() !== 'server') return false
   try {
-    await fetch('/api/sync/' + encodeURIComponent(room) + '/push', {
+    const response = await fetch('/api/sync/' + encodeURIComponent(room) + '/push', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ events: [], presence }),
     })
+    const data = await response.json().catch(() => null)
+    if (!response.ok || !data?.ok) { pingCache = { at: 0, ok: false }; return false }
     return true
-  } catch { return false }
+  } catch { pingCache = { at: 0, ok: false }; return false }
 }
 
 // ---- 订阅 ----
@@ -164,20 +168,23 @@ export function subscribe(room, onChange) {
 
   const poll = async () => {
     // 只有确认接上了服务端才轮询；同设备轨靠 BroadcastChannel，不必去打无效请求
-    if (stopped || syncMode() !== 'server') return
+    if (stopped) return
+    await probeSync()
+    if (stopped) return
+    if (syncMode() !== 'server') { onChange({ events: [], presence: null, mode: 'device' }); return }
     try {
       const r = await fetch('/api/sync/' + encodeURIComponent(room) + '/pull?since=' + cursor, {
-        headers: { accept: 'application/json' },
+        cache: 'no-store', headers: { accept: 'application/json' },
       })
       const data = await r.json().catch(() => null)
-      if (data && data.ok) {
+      if (r.ok && data && data.ok) {
         cursor = Number(data.cursor) || cursor
         // alerts 是服务端惰性算出来的提醒（如「平安到达超时」）：跟事件一起交给页面，
         // 靠各自的稳定 id 去重，所以同一次会话只提醒一次。
         const alerts = Array.isArray(data.alerts) ? data.alerts : []
         deliver(alerts.length ? [...(data.events || []), ...alerts] : data.events, data.presence)
-      }
-    } catch {}
+      } else { pingCache = { at: 0, ok: false }; onChange({ events: [], presence: null, mode: 'device' }) }
+    } catch { pingCache = { at: 0, ok: false }; onChange({ events: [], presence: null, mode: 'device' }) }
   }
 
   const tick = () => { poll() }
