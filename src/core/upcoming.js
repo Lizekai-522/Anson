@@ -63,7 +63,7 @@ export function futureList(cards, now = new Date()) {
   const today = localDate(now)
   const out = []
   ;(cards || []).forEach((c, i) => {
-    if (!c || c.kind === 'stay') return
+    if (!c || c.kind === 'stay' || c.manualConfirm) return
     if (c.date !== today) return
     const at = parseDepartAt(c)
     if (!at) return
@@ -112,7 +112,7 @@ export function nextDepartText(cards, now = new Date()) {
 export function arrivalCheckpoints(cards, doneMap, now = new Date(), { graceMin = ARRIVE_GRACE_MIN } = {}) {
   const out = []
   ;(cards || []).forEach((c, i) => {
-    if (!c || c.kind === 'stay') return
+    if (!c || c.kind === 'stay' || c.manualConfirm) return
     if (!c.arrive) return
     const at = parseArriveAt(c)
     if (!at) return
@@ -131,7 +131,7 @@ export function arrivalCheckpoints(cards, doneMap, now = new Date(), { graceMin 
 export function nextArrivalCheckpoint(cards, doneMap, now = new Date()) {
   let best = null
   ;(cards || []).forEach((c, i) => {
-    if (!c || c.kind === 'stay' || !c.arrive) return
+    if (!c || c.kind === 'stay' || c.manualConfirm || !c.arrive) return
     const at = parseArriveAt(c)
     if (!at || at.getTime() <= now.getTime()) return
     const k = c.segId != null && c.segId !== '' ? String(c.segId) : 'i' + i
@@ -170,7 +170,7 @@ export function upcomingList(cards, now = new Date(), { leadMin = LEAD_MIN, seco
   const today = localDate(now)
   const out = []
   ;(cards || []).forEach((c, i) => {
-    if (!c || c.kind === 'stay') return
+    if (!c || c.kind === 'stay' || c.manualConfirm) return
     if (c.date !== today) return
     const at = parseDepartAt(c)
     if (!at) return

@@ -121,13 +121,15 @@ function removeTodo(ti) {
 
 // ---- 段编辑 ----
 const editingId = ref('')
-const editForm = reactive({ date: '', departTime: '', arriveTime: '', from: '', to: '', code: '', note: '', timeOfDay: '', guide: '', todos: [] })
+const editForm = reactive({ arrivalDay: 'auto', confirmed: false, date: '', departTime: '', arriveTime: '', from: '', to: '', code: '', note: '', timeOfDay: '', guide: '', todos: [] })
 function toggleEdit(seg) {
   if (editingId.value === seg.id) { editingId.value = ''; return }
   editingId.value = seg.id
   editForm.date = seg.date || ''
   editForm.departTime = seg.departTime || ''
   editForm.arriveTime = seg.arriveTime || ''
+  editForm.arrivalDay = typeof seg.arriveNextDayExplicit === 'boolean' ? (seg.arriveNextDayExplicit ? 'next' : 'same') : 'auto'
+  editForm.confirmed = !seg.manualConfirm
   editForm.from = seg.from || ''
   editForm.to = seg.to || ''
   editForm.code = seg.code || ''
@@ -141,6 +143,8 @@ function saveSegment(seg) {
   if (editForm.date) seg.dateInvalid = false // 表单值是标准日期，原文写法问题即告解决
   seg.departTime = editForm.departTime || null
   seg.arriveTime = editForm.arriveTime || null
+  seg.arriveNextDayExplicit = editForm.arrivalDay === 'auto' ? null : editForm.arrivalDay === 'next'
+  seg.manualConfirm = !editForm.confirmed
   seg.from = editForm.from.trim()
   seg.to = editForm.to.trim()
   seg.code = editForm.code.trim()
@@ -153,6 +157,7 @@ function saveSegment(seg) {
     .map((t) => ({ id: t.id || uid('todo'), text: String(t.text || '').trim(), level: t.level || 'normal' }))
     .filter((t) => t.text)
   // dateLiteral 保留原值（留档），这里不回写
+  sanityCheck([seg], { today: todayStr() })
   refreshPlain(seg) // 改了站点/车次，人话与语音要跟着变，否则长辈端还是旧说法
   const t = trip.value
   if (t) rerunIssues(t)
@@ -839,6 +844,8 @@ onBeforeUnmount(() => {
                 <div class="form-field">
                   <label :for="'ed-arrive-' + s.id">到达时间</label>
                   <input :id="'ed-arrive-' + s.id" v-model="editForm.arriveTime" type="time" />
+                  <select v-model="editForm.arrivalDay" aria-label="到达日期"><option value="auto">按时刻推断</option><option value="same">当天到达（已核对）</option><option value="next">次日到达（已核对）</option></select>
+                  <label><input v-model="editForm.confirmed" type="checkbox" />已对照原始票据核对关键字段</label>
                 </div>
                 <div class="form-field">
                   <label :for="'ed-from-' + s.id">出发地</label>

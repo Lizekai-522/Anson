@@ -68,10 +68,10 @@ test('日期口语全表（today=2026-03-15 周日）', () => {
   ok(chu8.invalid === true && chu8.literal === '八月初八', '农历初八保留字面')
 })
 
-test('非法时间钳制：钳到 23:59 并标待确认（不替用户做语义决定以外的猜测）', () => {
+test('非法时间留空并标待确认（不替用户做语义决定以外的猜测）', () => {
   const trip = runPipeline('10月8号 G7102 上海虹桥站 到 北京南站 25点70分发车', { today: TODAY })
   const s = trip.segments[0]
-  ok(s.departTime === '23:59', '钳制为 23:59')
+  ok(s.departTime === null, '非法时刻留空')
   ok(s.manualConfirm === true, '标待人工确认')
   ok(trip.issues.some((i) => i.code === 'time-clamped' && i.level === 'warn'), 'time-clamped issue')
 })

@@ -4,7 +4,7 @@
 //   错误的行程信息，可能让 70 岁的老人凌晨 3 点站在火车站等一趟不存在的车。
 //   宁可标「待人工确认」，也不给一个看起来很确定的错误答案。
 //
-// 纯 JS、零 import —— node 可直接测试。时间钳制但不替用户做语义决定：
+// 纯 JS、零 import —— node 可直接测试。非法时刻留空，不替用户做语义决定：
 // 平年 2 月 29 日保留字面日期，绝不悄悄改成 3 月 1 日。
 
 // ---------- 基础工具 ----------
@@ -44,14 +44,13 @@ export function parseDatePhrase(text, today) {
   }
 
   // 周X / 星期X / 礼拜X / 下周X
-  const wk = text.match(/(下(?:下)?(?:周|星期|礼拜))?[周星期礼拜]([日天一二三四五六])/)
+  const wk = text.match(/(下下|下|本)?(?:周|星期|礼拜)([日天一二三四五六])/)
   if (wk) {
     const target = WEEK_MAP[wk[2]]
     const dow = new Date(ty, tm - 1, td).getDay()
-    let diff = (target - dow + 7) % 7
-    if (diff === 0) diff = 7
-    if (wk[1]) diff += 7
-    if (wk[1] && wk[1].startsWith('下下')) diff += 7
+    const weekOffset = wk[1] === '下下' ? 2 : wk[1] === '下' ? 1 : 0
+    let diff = wk[1] ? -(dow + 6) % 7 + (target + 6) % 7 + weekOffset * 7 : (target - dow + 7) % 7
+    if (!wk[1] && diff === 0) diff = 7
     return { date: addDays(today, diff), literal: wk[0], invalid: false }
   }
 
@@ -110,7 +109,7 @@ function parseTimeFull(text) {
     const clamped = h > 23 || min > 59
     if (h > 23) { h = 23; min = 59 }
     if (min > 59) min = 59
-    return { time: `${pad2(h)}:${pad2(min)}`, clamped, literal: m[0] }
+    return { time: clamped ? null : `${pad2(h)}:${pad2(min)}`, clamped, literal: m[0] }
   }
   return { time: null, clamped: false, literal: null }
 }
@@ -292,11 +291,13 @@ export function parseSegments(rawText, { today, fallbackDate = null } = {}) {
     const dateInfo = parseDatePhrase(work, today)
     const { time: t1, clamped, literal: t1lit } = parseTimeFull(work)
     let times = [t1]
-    if (t1) {
+    let arrivalInvalid = false
+    if (t1lit) {
       // 找第二个时刻（到达）
       const rest = work.indexOf(t1lit) >= 0 ? work.slice(work.indexOf(t1lit) + t1lit.length) : ''
       const second = rest ? parseTimeFull(rest) : { time: null }
       times = [t1, second.time]
+      arrivalInvalid = !!second.clamped
     }
 
     const mentionsOcr = OCR_RE.test(work)
@@ -397,10 +398,9 @@ export function parseSegments(rawText, { today, fallbackDate = null } = {}) {
         seg.departTime = times[0]
         seg.arriveTime = times[1] || null
       }
-      if (clamped && seg.type !== 'hotel') {
-        seg.departTime = '23:59'
+      if ((clamped || arrivalInvalid) && seg.type !== 'hotel') {
         seg.manualConfirm = true
-        issues.push(issue('warn', 'time-clamped', `「${t1lit}」不是合法时刻，已钳制为 23:59，请人工确认真实时间。`, seg.id))
+        issues.push(issue('warn', 'time-clamped', '原文包含非法出发或到达时刻，已保留原文并将非法值留空，请核对真实时间。', seg.id))
       }
       if (mentionsOcr) {
         seg.manualConfirm = true
@@ -571,7 +571,10 @@ export function translateSegment(seg) {
         ? `这一段是安排：${seg.timeOfDay || ''}${seg.to ? '去' + seg.to : (seg.titleHint || '')}。${seg.note || ''}`
         : `你${seg.code ? '坐 ' + seg.code : '出发'}，${seg.departTime ? timeCN(seg.departTime) : '时间待定'}从${seg.from || '出发地'}出发，${seg.arriveTime ? timeCN(seg.arriveTime) : '时间待定'}到${seg.to || '目的地'}。${tips[0] || ''}`
 
-  if (seg.manualConfirm) tips.push('这一条还需要人工确认一下，再对照原短信看看。')
+  if (seg.manualConfirm) {
+    tips.push('这一条还需要人工确认一下，再对照原短信看看。')
+    p.voice = '这一条还没有核对，请先联系家人确认。' + p.voice
+  }
   p.tips = tips
   return seg
 }
@@ -604,8 +607,15 @@ export function sanityCheck(segments, { today } = {}) {
       issues.push(issue('warn', 'past-date', `这一条的日期（${seg.date}）在过去，请确认是不是写错了。`, seg.id))
     }
     if (seg.type === 'train' || seg.type === 'flight') {
-      if (seg.departTime && seg.arriveTime && toMin(seg.arriveTime) <= toMin(seg.departTime)) {
-        seg.arriveNextDay = true
+      const inferredNextDay = !!(seg.departTime && seg.arriveTime && toMin(seg.arriveTime) <= toMin(seg.departTime))
+      seg.arriveNextDay = typeof seg.arriveNextDayExplicit === 'boolean' ? seg.arriveNextDayExplicit : inferredNextDay
+      if (!seg.date || !seg.from || !seg.to || !seg.departTime || !seg.arriveTime) seg.manualConfirm = true
+      if (seg.arriveNextDayExplicit === false && inferredNextDay) {
+        seg.manualConfirm = true
+        issues.push(issue('warn', 'arrival-order', '已选择当天到达，但到达时刻不晚于出发，请核对。', seg.id))
+      }
+      if (seg.arriveNextDay && seg.departTime && seg.arriveTime) {
+        // Explicit user choice takes precedence over the derived offset.
         const gap = 1440 - toMin(seg.departTime) + toMin(seg.arriveTime)
         if (gap > 14 * 60) {
           seg.manualConfirm = true
@@ -852,6 +862,7 @@ export function packInviteSegments(segments) {
       packTodos(s.todos),
       sanitizeText(s.dateLiteral),
       sanitizeText(s.guide),
+      typeof s.arriveNextDayExplicit === 'boolean' ? (s.arriveNextDayExplicit ? 1 : 2) : 0,
     ]
     while (row.length > 7 && isEmptyCell(row[row.length - 1])) row.pop()
     return row
@@ -873,6 +884,7 @@ export function buildInviteTrip(invite, { today } = {}) {
     seg.arriveTime = c[6] || null
     const f = Number(c[7]) || 0
     seg.arriveNextDay = !!(f & 1)
+    seg.arriveNextDayExplicit = c[15] === 1 ? true : c[15] === 2 ? false : null
     seg.manualConfirm = !!(f & 2)
     seg.dateInvalid = !!(f & 4)
     seg.hotelNightsExplicit = !!(f & 8)
