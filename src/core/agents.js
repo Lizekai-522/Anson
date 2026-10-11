@@ -703,7 +703,8 @@ export function packTodos(todos) {
       const lv = TODO_LEVEL_IDX[(t && t.level) || 'normal']
       const idx = lv == null ? 0 : lv
       const row = [text]
-      if (idx !== 0) row.push(idx)
+      if (idx !== 0 || (t.id && t.stableId !== false)) row.push(idx)
+      if (t.id && t.stableId !== false) row.push(sanitizeText(t.id))
       return row
     })
     .filter(Boolean)
@@ -712,7 +713,8 @@ export function packTodos(todos) {
 export function expandTodos(rows) {
   return (rows || [])
     .map((r, i) => ({
-      id: 'todo' + i,
+      id: Array.isArray(r) && r[2] ? sanitizeText(r[2]) : 'todo' + i,
+      stableId: !!(Array.isArray(r) && r[2]),
       text: sanitizeText(Array.isArray(r) ? r[0] : r),
       level: expandLevel(Array.isArray(r) ? r[1] : 0),
     }))
@@ -745,7 +747,7 @@ export function buildElderCards(trip, family) {
       hotelNights: seg.hotelNights || null,
       seatClass: seg.seatClass || null,
       timeOfDay: seg.timeOfDay || '',
-      todos: packTodos(seg.todos).map((r) => ({ text: r[0], level: expandLevel(r[1]) })),
+      todos: packTodos(seg.todos).map((r) => ({ text: r[0], level: expandLevel(r[1]), ...(r[2] ? { id: r[2], stableId: true } : {}) })),
       guide: sanitizeText(seg.guide),
       // 天气是「卡片级」信息：由子女端查好、随分享下发，放到这里只为统一字段形状
       weather: '',
@@ -800,10 +802,10 @@ export function packCards(cards) {
 
 // 紧凑卡 → 完整卡：把字段还原成"段"的结构，再走一遍既有的 translateSegment + buildElderCards。
 // 刻意不另写一套推导逻辑 —— 复用同一条管线，才不会出现"编码前和解码后不一样"。
-export function expandCards(rows) {
+export function expandCards(rows, ids = []) {
   const segs = (rows || []).map((c, i) => {
     const seg = baseSeg(CARD_TYPES[c[0]] || 'train', i, '')
-    seg.id = 'seg' + i
+    seg.id = typeof ids[i] === 'string' && ids[i] ? sanitizeText(ids[i]) : 'seg' + i
     seg.code = c[1] || ''
     seg.from = c[2] || ''
     seg.to = c[3] || ''

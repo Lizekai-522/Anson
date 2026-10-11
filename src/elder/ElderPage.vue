@@ -246,9 +246,9 @@ function onToggleTodo(ev) {
   const key = ev && ev.key
   const index = ev && ev.index
   if (!key || index == null) return
-  tasks.value = saveElderState(room.value, toggleTodo(tasks.value, key, index))
-  const done = !!tasks.value.todos[todoKey(key, index)]
-  push(room.value, [makeEvent(done ? 'todo-done' : 'todo-undone', key, { index, text: ev.text || '' })])
+  tasks.value = saveElderState(room.value, toggleTodo(tasks.value, key, ev.taskId || index))
+  const done = !!tasks.value.todos[todoKey(key, ev.taskId || index)]
+  push(room.value, [makeEvent(done ? 'todo-done' : 'todo-undone', key, { index, taskId: ev.taskId || '', text: ev.text || '' })])
 }
 
 // 显示页「回到主页面」：长辈端没有登录，有账号回首页，没有就回欢迎页

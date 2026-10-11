@@ -50,7 +50,7 @@ function key(c, i) { return cardKey(c, i) }
 function isDone(c, i) { return !!props.doneMap[key(c, i)] }
 function isCollapsed(c, i) { return !!props.collapsedMap[key(c, i)] }
 function bodyId(c, i) { return 'cardbody-' + key(c, i) }
-function isTodoDone(c, i, ti) { return !!props.todosMap[`${key(c, i)}:todo:${ti}`] }
+function isTodoDone(c, i, ti) { return !!props.todosMap[`${key(c, i)}:todo:${c.todos[ti]?.stableId ? c.todos[ti].id : ti}`] }
 function todosOf(c) { return (c && Array.isArray(c.todos)) ? c.todos : [] }
 
 // 跳转高亮：滚到那张卡（behavior 必须是 auto —— 长辈端不允许任何动效）
@@ -209,7 +209,7 @@ watch(() => props.highlightSegId, (k) => {
             :class="['todo-lv-' + (t.level || 'normal'), { 'todo-row-done': isTodoDone(c, i, ti) }]"
             :aria-pressed="isTodoDone(c, i, ti)"
             :aria-label="`${isTodoDone(c, i, ti) ? '已做' : '没做'}：${t.text}，点一下改成${isTodoDone(c, i, ti) ? '没做' : '做了'}`"
-            @click="emit('toggle-todo', { key: key(c, i), index: ti, text: t.text })"
+            @click="emit('toggle-todo', { key: key(c, i), index: ti, taskId: t.stableId ? t.id : '', text: t.text })"
           >
             <span class="todo-mark" aria-hidden="true">{{ isTodoDone(c, i, ti) ? '✓' : '' }}</span>
             <span class="todo-text">{{ t.text }}</span>

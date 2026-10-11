@@ -10,6 +10,8 @@ import { runAssist, applyAssist, hasWork } from '../core/ai.js'
 import { loadModelConfig, isConfigured, reasonText } from '../core/model.js'
 import { downloadIcs, downloadTripPoster } from '../core/export.js'
 import { buildChecklist, checklistGroups, toggleChecklistItem } from '../core/checklist.js'
+import { decodeShare } from '../core/share-codec.js'
+import { replaySharedTodos } from '../core/sharedTodos.js'
 import { roomId, subscribe, probeSync } from '../core/sync.js'
 import RealMap from '../components/RealMap.vue'
 
@@ -134,7 +136,7 @@ function toggleEdit(seg) {
   editForm.note = seg.note || ''
   editForm.timeOfDay = seg.timeOfDay || ''
   editForm.guide = seg.guide || ''
-  editForm.todos = todosOf(seg).map((t) => ({ text: t.text || '', level: t.level || 'normal' }))
+  editForm.todos = todosOf(seg).map((t) => ({ id: t.id, text: t.text || '', level: t.level || 'normal' }))
 }
 function saveSegment(seg) {
   seg.date = editForm.date || seg.date
@@ -472,21 +474,15 @@ function elderEventText(e) {
 
 // 只读重放长辈的勾选事件：segId → Set(清单序号)。时间正序，后到的覆盖先到的。
 const todoState = computed(() => {
-  const map = {}
-  const evs = [...elderEvents.value].sort((a, b) => (a.at || 0) - (b.at || 0))
-  for (const e of evs) {
-    if (!e || (e.type !== 'todo-done' && e.type !== 'todo-undone')) continue
-    const idx = e.data && e.data.index
-    if (!e.segId || typeof idx !== 'number') continue
-    if (!map[e.segId]) map[e.segId] = new Set()
-    if (e.type === 'todo-done') map[e.segId].add(idx)
-    else map[e.segId].delete(idx)
-  }
-  return map
+  try {
+    const decoded = decodeShare(elderShare.value?.token)
+    return replaySharedTodos(elderEvents.value, decoded.ok ? decoded.payload.cards : [], trip.value?.segments || [])
+  } catch { return {} }
 })
 function isTodoDone(segId, i) {
-  const s = todoState.value[segId]
-  return !!s && s.has(i)
+  const seg = trip.value?.segments?.find((s) => s.id === segId)
+  const task = seg?.todos?.[i]
+  return !!todoState.value[segId]?.has(task?.id || String(i))
 }
 // 动态列表只展示最近 20 条；重放用全量，避免旧事件被裁掉后勾选状态回退
 const elderFeed = computed(() => elderEvents.value.slice(0, 20))

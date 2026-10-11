@@ -62,6 +62,7 @@ function packPayload(p) {
     t: p.title || '',
     x: Math.floor((p.exp || 0) / 1000).toString(36), // 36 进制秒：13 位 → 6 位
     c: packCards(p.cards),
+    i: (p.cards || []).map((c) => String(c.segId || '')),
   }
   const people = packPeople(p.contacts)
   if (people.length) out.p = people
@@ -86,7 +87,7 @@ function unpackPayload(p) {
     v: 2,
     title: p.t || '',
     exp: parseInt(p.x || '0', 36) * 1000,
-    cards: expandCards(p.c || []),
+    cards: expandCards(p.c || [], Array.isArray(p.i) ? p.i : []),
     contacts,
     pr,
     prefs: Array.isArray(p.f) ? { scale: p.f[0], theme: p.f[1], shareLocation: !!p.f[2] } : null,

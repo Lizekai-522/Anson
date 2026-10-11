@@ -42,7 +42,7 @@ function payloadOf(n) {
 }
 
 test('链接长度：1/2/4 段都压到可扫区间（含 2 位家人的实测基线）', () => {
-  for (const [n, cap] of [[1, 420], [2, 620], [4, 900]]) {
+  for (const [n, cap] of [[1, 460], [2, 700], [4, 1050]]) {
     const url = buildShareUrl(encodeShare(payloadOf(n)))
     ok(url.length <= cap, `${n} 段链接 ${url.length} 字符应 ≤ ${cap}`)
   }
@@ -51,7 +51,7 @@ test('链接长度：1/2/4 段都压到可扫区间（含 2 位家人的实测�
 test('二维码：1/2/4 段都能生成，且每格 ≥ 2.4px（这是真正的可用边界）', () => {
   for (const n of [1, 2, 4]) {
     const url = buildShareUrl(encodeShare(payloadOf(n)))
-    const info = qrInfo(url, { box: 248 })
+    const info = qrInfo(url, { box: 280 })
     ok(!!info, `${n} 段应能生成二维码`)
     ok(info.pxPerModule >= 2.4, `${n} 段每格 ${info.pxPerModule.toFixed(2)}px 应 ≥ 2.4px`)
     ok(info.dataUrl.startsWith('data:image/svg+xml,'), `${n} 段二维码是 SVG data URL`)

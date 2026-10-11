@@ -97,7 +97,7 @@ function weatherForSeg(seg) {
 
 // ---- 区2：生成分享 ----
 // 二维码承载边长：248px 是"每格 ≥2.4px"与"手机屏放得下"之间的实测折中点
-const QR_BOX = 248
+const QR_BOX = 280
 const result = ref(null) // { url, code6, token, exp, dataUrl, qr, contactNames }
 const linkInput = ref(null)
 const codeRef = ref(null)
