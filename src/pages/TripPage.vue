@@ -179,7 +179,9 @@ async function queryWeather() {
       if (w && w.advice) { map[city] = w.advice; got += 1 }
     }
     if (!got) { toast('没连上天气服务，不影响看行程', 'warn'); return }
-    if (!upsertTrip({ ...t, weather: map, updatedAt: Date.now() }).ok) { toast('天气没有保存到本机，请重试', 'err'); return }
+    const latest = getTrip(t.id)
+    if (!latest) return
+    if (!upsertTrip({ ...latest, weather: { ...(latest.weather || {}), ...map }, updatedAt: Date.now() }).ok) { toast('天气没有保存到本机，请重试', 'err'); return }
     toast(`已查到 ${got} 个地方的天气，会随分享一起发给长辈`, 'ok')
     weatherBlock.value?.scrollIntoView({ behavior: 'smooth', block: 'center' }) // 查完就地看到结果
   } finally {
@@ -267,7 +269,9 @@ async function loadGeo() {
       if (g) { map[city] = { lat: g.lat, lng: g.lng }; got += 1 }
     }
     if (!got) { geoHint.value = '接不上地图服务：本机跑一下 server（node server/notify-server.mjs）再刷新。'; geoMissing.value = []; return }
-    if (!upsertTrip({ ...t, geo: map, updatedAt: Date.now() }).ok) {
+    const latest = getTrip(t.id)
+    if (!latest) return
+    if (!upsertTrip({ ...latest, geo: { ...(latest.geo || {}), ...map }, updatedAt: Date.now() }).ok) {
       geoHint.value = '地图位置没有保存到本机，请清理空间后重试。'
       return
     }
