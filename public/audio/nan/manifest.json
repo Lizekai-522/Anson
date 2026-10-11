@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "model": "facebook/mms-tts-nan",
+  "license": "CC-BY-NC-4.0",
+  "totalBytes": 285165,
+  "items": {
+    "nan_generic_1": {
+      "file": "nan_generic_1.mp3",
+      "bytes": 12537,
+      "seconds": 4.0,
+      "text": "Kin-á-ji̍t hîng-tîng, bān-bān-á lâi, m̄-bián kuánn.",
+      "hanzi": "今仔日行程，慢慢仔來，毋免趕。"
+    },
+    "nan_generic_2": {
+      "file": "nan_generic_2.mp3",
+      "bytes": 8649,
+      "seconds": 2.74,
+      "text": "Ū tāi-tsì, suî-sî kā ka-lâng kóng.",
+      "hanzi": "有代誌，隨時共家人講。"
+    },
+    "nan_generic_3": {
+      "file": "nan_generic_3.mp3",
+      "bytes": 8433,
+      "seconds": 2.64,
+      "text": "Sî-kan nā kàu, tsiū ài tsún-pī tshut-mn̂g.",
+      "hanzi": "時間若到，就愛準備出門。"
+    },
+    "nan_generic_4": {
+      "file": "nan_generic_4.mp3",
+      "bytes": 8541,
+      "seconds": 2.69,
+      "text": "Kiânn-lōo ài sè-jī, tsù-ì an-tsuân.",
+      "hanzi": "行路愛細膩，注意安全。"
+    },
+    "nan_train_1": {
+      "file": "nan_train_1.mp3",
+      "bytes": 12429,
+      "seconds": 3.97,
+      "text": "Kin-á-ji̍t tsē tshia, ài thê-tsá kàu tshia-thâu tán.",
+      "hanzi": "今仔日坐車，愛提早到車頭等。"
+    },
+    "nan_train_2": {
+      "file": "nan_train_2.mp3",
+      "bytes": 11673,
+      "seconds": 3.73,
+      "text": "Tshia-phiò kah sin-hūn-tsìng lóng ài tuà hó.",
+      "hanzi": "車票佮身分證攏愛帶好。"
+    },
+    "nan_train_3": {
+      "file": "nan_train_3.mp3",
+      "bytes": 10701,
+      "seconds": 3.39,
+      "text": "Tsiūnn-tshia liáu-āu, hîng-lí pàng tī sin-pinn.",
+      "hanzi": "上車了後，行李放佇身邊。"
+    },
+    "nan_train_4": {
+      "file": "nan_train_4.mp3",
+      "bytes": 9729,
+      "seconds": 3.07,
+      "text": "Kàu-tsām tsìn-tsîng, ē kì-tit the̍h mi̍h-kiānn.",
+      "hanzi": "到站進前，會記得提物件。"
+    },
+    "nan_train_5": {
+      "file": "nan_train_5.mp3",
+      "bytes": 8541,
+      "seconds": 2.67,
+      "text": "Ū būn-tê, kā tsām-bū jîn-uân mn̄g tsiū hó.",
+      "hanzi": "有問題，共站務人員問就好。"
+    },
+    "nan_flight_1": {
+      "file": "nan_flight_1.mp3",
+      "bytes": 14373,
+      "seconds": 4.62,
+      "text": "Kin-á-ji̍t tsē hui-ki, ài thê-tsá nn̄g tiám-tsing kàu ki-tiûnn.",
+      "hanzi": "今仔日坐飛機，愛提早兩點鐘到機場。"
+    },
+    "nan_flight_2": {
+      "file": "nan_flight_2.mp3",
+      "bytes": 10377,
+      "seconds": 3.31,
+      "text": "Sin-hūn-tsìng kah ki-phiò lóng ài tuà hó.",
+      "hanzi": "身分證佮機票攏愛帶好。"
+    },
+    "nan_flight_3": {
+      "file": "nan_flight_3.mp3",
+      "bytes": 9945,
+      "seconds": 3.17,
+      "text": "Kuè an-kiám tsìn-tsîng, sing kā tsuí lim tiāu.",
+      "hanzi": "過安檢進前，先共水飲掉。"
+    },
+    "nan_flight_4": {
+      "file": "nan_flight_4.mp3",
+      "bytes": 7353,
+      "seconds": 2.3,
+      "text": "Ting-ki-kháu nā uānn, ài khuànn îng-bōo.",
+      "hanzi": "登機口若換，愛看螢幕。"
+    },
+    "nan_flight_5": {
+      "file": "nan_flight_5.mp3",
+      "bytes": 10917,
+      "seconds": 3.49,
+      "text": "Lo̍h hui-ki liáu-āu, tuè tsí-sī-pâi kiânn.",
+      "hanzi": "落飛機了後，綴指示牌行。"
+    },
+    "nan_hotel_1": {
+      "file": "nan_hotel_1.mp3",
+      "bytes": 6381,
+      "seconds": 1.97,
+      "text": "Kin-á-ji̍t beh tuà lú-siā.",
+      "hanzi": "今仔日欲蹛旅社。"
+    },
+    "nan_hotel_2": {
+      "file": "nan_hotel_2.mp3",
+      "bytes": 15021,
+      "seconds": 4.83,
+      "text": "Kàu lú-siā, kā miâ kóng tshut-lâi tsiū ē niá-tio̍h só-sî.",
+      "hanzi": "到旅社，共名講出來就領會著鎖匙。"
+    },
+    "nan_hotel_3": {
+      "file": "nan_hotel_3.mp3",
+      "bytes": 11781,
+      "seconds": 3.78,
+      "text": "Pâng-king nā ū būn-tê, suî kā kuī-tâi kóng.",
+      "hanzi": "房間若有問題，隨共櫃台講。"
+    },
+    "nan_hotel_4": {
+      "file": "nan_hotel_4.mp3",
+      "bytes": 9945,
+      "seconds": 3.17,
+      "text": "Kuì-tiōng mi̍h-kiānn ài só tī pâng-king lāi.",
+      "hanzi": "貴重物件愛鎖佇房間內。"
+    },
+    "nan_hotel_5": {
+      "file": "nan_hotel_5.mp3",
+      "bytes": 10593,
+      "seconds": 3.36,
+      "text": "Thè-pâng tsìn-tsîng, kā pâng-king sûn tsi̍t-pái.",
+      "hanzi": "退房進前，共房間巡一擺。"
+    },
+    "nan_taxi_1": {
+      "file": "nan_taxi_1.mp3",
+      "bytes": 10053,
+      "seconds": 3.18,
+      "text": "Kin-á-ji̍t tsē tshia, ài sing khuànn tshia-pâi.",
+      "hanzi": "今仔日坐車，愛先看車牌。"
+    },
+    "nan_taxi_2": {
+      "file": "nan_taxi_2.mp3",
+      "bytes": 12105,
+      "seconds": 3.87,
+      "text": "Tsiūnn-tshia tsìn-tsîng, kā su-ki kóng beh khì tó-uī.",
+      "hanzi": "上車進前，共司機講欲去佗位。"
+    },
+    "nan_taxi_3": {
+      "file": "nan_taxi_3.mp3",
+      "bytes": 5625,
+      "seconds": 1.73,
+      "text": "Kàu sóo-tsāi tsiah hù tsînn.",
+      "hanzi": "到所在才付錢。"
+    },
+    "nan_taxi_4": {
+      "file": "nan_taxi_4.mp3",
+      "bytes": 10053,
+      "seconds": 3.18,
+      "text": "Lo̍h-tshia tsìn-tsîng, ē kì-tit the̍h mi̍h-kiānn.",
+      "hanzi": "落車進前，會記得提物件。"
+    },
+    "nan_taxi_5": {
+      "file": "nan_taxi_5.mp3",
+      "bytes": 9189,
+      "seconds": 2.91,
+      "text": "Ū būn-tê, suî phah tiān-uē kā ka-lâng kóng.",
+      "hanzi": "有問題，隨拍電話共家人講。"
+    },
+    "nan_activity_1": {
+      "file": "nan_activity_1.mp3",
+      "bytes": 6597,
+      "seconds": 2.05,
+      "text": "Kin-á-ji̍t beh khì kiânn-kiânn.",
+      "hanzi": "今仔日欲去行行。"
+    },
+    "nan_activity_2": {
+      "file": "nan_activity_2.mp3",
+      "bytes": 6489,
+      "seconds": 2.02,
+      "text": "Bān-bān-á kiânn, m̄-bián kuánn.",
+      "hanzi": "慢慢仔行，毋免趕。"
+    },
+    "nan_activity_3": {
+      "file": "nan_activity_3.mp3",
+      "bytes": 10593,
+      "seconds": 3.38,
+      "text": "Pak-tóo nā iau, tshuē sóo-tsāi tsia̍h mi̍h-kiānn.",
+      "hanzi": "腹肚若枵，揣所在食物件。"
+    },
+    "nan_activity_4": {
+      "file": "nan_activity_4.mp3",
+      "bytes": 9837,
+      "seconds": 3.1,
+      "text": "Siòng-phìnn ke-kiám hip, lâu tsi̍t-ê kì-liām.",
+      "hanzi": "相片加減翕，留一个紀念。"
+    },
+    "nan_activity_5": {
+      "file": "nan_activity_5.mp3",
+      "bytes": 6705,
+      "seconds": 2.08,
+      "text": "Ka-kī thiànn-sioh, mā ài hioh-khùn.",
+      "hanzi": "家己疼惜，嘛愛歇睏。"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "model": "facebook/mms-tts-nan",
+  "license": "CC-BY-NC-4.0",
+  "input": "tailo",
+  "note": "闽南语（Min Nan）关键句模板：每类卡片 5 句 + 4 句通用。id 与 src/core/elderVoice.js 的 nan_<kind>_<n> 一一对应。text 是送进模型的台罗/白话字罗马字（该模型的词表只有 48 个罗马字字符，汉字会直接tokenize 成 0，所以必须用罗马字）；hanzi 是同一句的汉字写法，仅供人看。罗马字与汉字写法按通用惯例整理，未经母语者逐句校对。",
+  "items": [
+    { "id": "nan_generic_1", "hanzi": "今仔日行程，慢慢仔來，毋免趕。", "text": "Kin-á-ji̍t hîng-tîng, bān-bān-á lâi, m̄-bián kuánn." },
+    { "id": "nan_generic_2", "hanzi": "有代誌，隨時共家人講。", "text": "Ū tāi-tsì, suî-sî kā ka-lâng kóng." },
+    { "id": "nan_generic_3", "hanzi": "時間若到，就愛準備出門。", "text": "Sî-kan nā kàu, tsiū ài tsún-pī tshut-mn̂g." },
+    { "id": "nan_generic_4", "hanzi": "行路愛細膩，注意安全。", "text": "Kiânn-lōo ài sè-jī, tsù-ì an-tsuân." },
+
+    { "id": "nan_train_1", "hanzi": "今仔日坐車，愛提早到車頭等。", "text": "Kin-á-ji̍t tsē tshia, ài thê-tsá kàu tshia-thâu tán." },
+    { "id": "nan_train_2", "hanzi": "車票佮身分證攏愛帶好。", "text": "Tshia-phiò kah sin-hūn-tsìng lóng ài tuà hó." },
+    { "id": "nan_train_3", "hanzi": "上車了後，行李放佇身邊。", "text": "Tsiūnn-tshia liáu-āu, hîng-lí pàng tī sin-pinn." },
+    { "id": "nan_train_4", "hanzi": "到站進前，會記得提物件。", "text": "Kàu-tsām tsìn-tsîng, ē kì-tit the̍h mi̍h-kiānn." },
+    { "id": "nan_train_5", "hanzi": "有問題，共站務人員問就好。", "text": "Ū būn-tê, kā tsām-bū jîn-uân mn̄g tsiū hó." },
+
+    { "id": "nan_flight_1", "hanzi": "今仔日坐飛機，愛提早兩點鐘到機場。", "text": "Kin-á-ji̍t tsē hui-ki, ài thê-tsá nn̄g tiám-tsing kàu ki-tiûnn." },
+    { "id": "nan_flight_2", "hanzi": "身分證佮機票攏愛帶好。", "text": "Sin-hūn-tsìng kah ki-phiò lóng ài tuà hó." },
+    { "id": "nan_flight_3", "hanzi": "過安檢進前，先共水飲掉。", "text": "Kuè an-kiám tsìn-tsîng, sing kā tsuí lim tiāu." },
+    { "id": "nan_flight_4", "hanzi": "登機口若換，愛看螢幕。", "text": "Ting-ki-kháu nā uānn, ài khuànn îng-bōo." },
+    { "id": "nan_flight_5", "hanzi": "落飛機了後，綴指示牌行。", "text": "Lo̍h hui-ki liáu-āu, tuè tsí-sī-pâi kiânn." },
+
+    { "id": "nan_hotel_1", "hanzi": "今仔日欲蹛旅社。", "text": "Kin-á-ji̍t beh tuà lú-siā." },
+    { "id": "nan_hotel_2", "hanzi": "到旅社，共名講出來就領會著鎖匙。", "text": "Kàu lú-siā, kā miâ kóng tshut-lâi tsiū ē niá-tio̍h só-sî." },
+    { "id": "nan_hotel_3", "hanzi": "房間若有問題，隨共櫃台講。", "text": "Pâng-king nā ū būn-tê, suî kā kuī-tâi kóng." },
+    { "id": "nan_hotel_4", "hanzi": "貴重物件愛鎖佇房間內。", "text": "Kuì-tiōng mi̍h-kiānn ài só tī pâng-king lāi." },
+    { "id": "nan_hotel_5", "hanzi": "退房進前，共房間巡一擺。", "text": "Thè-pâng tsìn-tsîng, kā pâng-king sûn tsi̍t-pái." },
+
+    { "id": "nan_taxi_1", "hanzi": "今仔日坐車，愛先看車牌。", "text": "Kin-á-ji̍t tsē tshia, ài sing khuànn tshia-pâi." },
+    { "id": "nan_taxi_2", "hanzi": "上車進前，共司機講欲去佗位。", "text": "Tsiūnn-tshia tsìn-tsîng, kā su-ki kóng beh khì tó-uī." },
+    { "id": "nan_taxi_3", "hanzi": "到所在才付錢。", "text": "Kàu sóo-tsāi tsiah hù tsînn." },
+    { "id": "nan_taxi_4", "hanzi": "落車進前，會記得提物件。", "text": "Lo̍h-tshia tsìn-tsîng, ē kì-tit the̍h mi̍h-kiānn." },
+    { "id": "nan_taxi_5", "hanzi": "有問題，隨拍電話共家人講。", "text": "Ū būn-tê, suî phah tiān-uē kā ka-lâng kóng." },
+
+    { "id": "nan_activity_1", "hanzi": "今仔日欲去行行。", "text": "Kin-á-ji̍t beh khì kiânn-kiânn." },
+    { "id": "nan_activity_2", "hanzi": "慢慢仔行，毋免趕。", "text": "Bān-bān-á kiânn, m̄-bián kuánn." },
+    { "id": "nan_activity_3", "hanzi": "腹肚若枵，揣所在食物件。", "text": "Pak-tóo nā iau, tshuē sóo-tsāi tsia̍h mi̍h-kiānn." },
+    { "id": "nan_activity_4", "hanzi": "相片加減翕，留一个紀念。", "text": "Siòng-phìnn ke-kiám hip, lâu tsi̍t-ê kì-liām." },
+    { "id": "nan_activity_5", "hanzi": "家己疼惜，嘛愛歇睏。", "text": "Ka-kī thiànn-sioh, mā ài hioh-khùn." }
+  ]
+}

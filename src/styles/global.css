@@ -1,0 +1,278 @@
+/* 安程 · 中性白 + 信号绿 · 站牌（signage）语言
+   token 是唯一样式入口；半透明只允许浮层使用，卡片一律不透明。
+
+   第四轮调整：**去掉暖奶油底、陶土朱红、衬线标题**（这三样正是 Anthropic / Claude 的
+   视觉签名：米黄纸面 + 陶土橙 + 宋体标题），改用冷调中性纸面 + 单一信号绿。整体往
+   "交通指示牌"靠：高对比、粗黑体、硬边、等宽数字、靠字阶与细线说话。
+   所以本套只有两种字面：--f-sans（正文与标题）与 --f-mono（要逐位核对的车次/时刻/码）。
+
+   长辈端是另一套更强的契约（日间/高对比/夜间三主题 + 零动画），token 见 --el-* 段，
+   由 src/elder/* 消费，页面里不硬编码颜色。 */
+:root {
+  --c-bg-0: #F6F7F5;   /* 纸面（中性冷调，不带黄） */
+  --c-bg-1: #EDEFEB;   /* 底 */
+  --c-bg-2: #E1E4DE;   /* 暗面 */
+  --c-card: #FFFFFF;   /* 卡片（不透明） */
+  --c-ink-0: #101210;  /* 墨色（纸面上 17.9:1） */
+  --c-ink-1: #3E423C;  /* 次级（9.4:1） */
+  --c-ink-2: #5E635A;  /* 三级（5.5:1，仍够 AA 正文） */
+  --c-line: #DBDED8;   /* 细线 */
+  --c-line-strong: #BFC4BB;
+  --c-brand: #0B6B45;  /* 信号绿，白字对比 6.55:1 */
+  --c-brand-2: #0E8052;/* hover，白字 4.97:1 */
+  --c-ok: #0B6B45;
+  --c-warn: #8A5A00;
+  --c-err: #B3261E;
+  --f-sans: -apple-system, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  /* 等宽（表格数字）：车次、时刻、6 位码这类"要逐位核对"的数字专用 */
+  --f-mono: ui-monospace, 'SF Mono', 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
+  --sh-1: 0 1px 2px rgba(16, 18, 16, 0.05);
+  --sh-2: 0 10px 30px rgba(16, 18, 16, 0.12); /* 只给抽屉/吐司这类浮层 */
+  --r-s: 4px;
+  --r-m: 6px;
+  --r-l: 8px;
+
+  /* 间距刻度 / 字号刻度 / 动效（页面只消费不另造） */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+  --fs-xs: 12px; --fs-sm: 13px; --fs-base: 15px; --fs-lg: 18px; --fs-xl: 22px;
+  --fs-display: 30px; /* 编辑式页头的大字（页面里最大的一行） */
+  --dur-1: 120ms; --dur-2: 180ms;
+  --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --focus-ring: 0 0 0 3px rgba(11, 107, 69, 0.18);
+
+  /* ---- 长辈端：站点指示牌（signage）契约 ----
+     粗黑体、硬边、单一信号色；没有暖奶油、没有陶土红、没有衬线 —— 和子女端同色相，
+     但换成"站牌"的对比强度。三主题：日间 / 高对比 / 夜间，正文对比度机器断言 ≥7:1。
+     按钮颜色单独走 --el-btn-*，这样"高对比"主题能把按钮翻成黄底黑字，
+     而不是把白字硬塞到亮黄上（那会直接跌破 4.5:1）。 */
+  --el-bg: #F1F2F0;        /* 日间底（亮度 ≥0.8，与墨字 18.5:1） */
+  --el-card: #FFFFFF;
+  --el-ink: #0B0C0B;
+  --el-ink-2: #3C403B;
+  --el-line: #C6CAC2;
+  --el-tint: #101210;      /* 发车时刻胶囊：黑底白字（18:1），像站牌上的车次 */
+  --el-tint-ink: #FFFFFF;
+  --el-accent: #0B6B45;    /* 路线 / 当前页 / 强调描边 */
+  --el-btn-bg: #0B6B45;
+  --el-btn-ink: #FFFFFF;
+  --el-btn-line: #0B6B45;
+  --el-danger: #8F1D10;    /* 紧急深红（白字 8.9:1） */
+  --el-stay: #A06400;      /* 住宿标记（琥珀） */
+  --el-error-bg: #FBE9E7;  /* 错误提示底 */
+  /* 「到了之后做什么」清单的优先级色条（只做装饰；正文一律走 --el-ink，保证 ≥7:1） */
+  --el-todo-high: #B3261E;   /* 重要 */
+  --el-todo-normal: #0B6B45; /* 普通 */
+  --el-todo-low: #5E635A;    /* 随手 */
+  /* 紧急求助：深红底 + 白字（7.6:1）；按住时更深一档 */
+  --el-sos: #A31D10;
+  --el-sos-press: #7E1509;
+  --el-r: 12px;            /* 指示牌圆角：收紧、硬朗 */
+}
+
+/* ---- 长辈端基础控件（跨视图复用，必须放全局）----
+   长辈端拆成了 DayView / CallsView / ShowView 三个独立组件，scoped 样式只在各自组件内生效，
+   所以"三个页面长得一样的控件"必须写在这里，否则子组件里的按钮拿不到样式（会变成透明底）。 */
+.elder-root .big-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 440px;
+  min-height: calc(88px * var(--el-scale, 1));
+  padding: 12px 20px;
+  background: var(--el-btn-bg);
+  border: 2px solid var(--el-btn-line);
+  border-radius: var(--el-r);
+  color: var(--el-btn-ink);
+  font-size: calc(34px * var(--el-scale, 1));
+  font-weight: 700;
+}
+.elder-root .back-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: calc(88px * var(--el-scale, 1));
+  margin: 0 0 24px;
+  background: var(--el-card);
+  border: 2px solid var(--el-line);
+  border-radius: var(--el-r);
+  color: var(--el-ink);
+  font-size: calc(30px * var(--el-scale, 1));
+  font-weight: 700;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--c-bg-0);
+  color: var(--c-ink-0);
+  font-family: var(--f-sans);
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 标题与正文同一字面（粗黑体），不再有衬线；靠字重与字号拉层级 */
+h1, h2, h3 { font-family: var(--f-sans); font-weight: 700; }
+
+a { color: var(--c-brand); text-decoration: none; }
+a:hover { color: var(--c-brand-2); }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: inherit;
+  font-size: inherit;
+}
+button:disabled { cursor: not-allowed; opacity: 0.55; }
+
+input, textarea, select {
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--c-ink-0);
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-s);
+  padding: 10px 12px;
+  outline: none;
+  width: 100%;
+}
+input:focus-visible, textarea:focus-visible, select:focus-visible {
+  border-color: var(--c-brand);
+  box-shadow: var(--focus-ring);
+}
+
+:focus-visible { outline: 3px solid rgba(11, 107, 69, 0.5); outline-offset: 2px; }
+
+/* 跳过导航直达正文（无障碍） */
+.skip-to-content {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 999;
+  background: var(--c-brand);
+  color: #fff;
+  padding: 10px 18px;
+  border-radius: 0 0 var(--r-s) 0;
+}
+.skip-to-content:focus { left: 0; }
+
+/* 通用卡片：白底 + 一条细线。阴影留给浮层，普通内容不靠阴影分层。 */
+.paper-card {
+  background: var(--c-card);
+  border: 1px solid var(--c-line);
+  border-radius: var(--r-m);
+}
+
+/* 细线分隔（编辑式版式的主力，替代层层卡片） */
+.rule { height: 1px; background: var(--c-line); border: 0; margin: var(--sp-5) 0; }
+/* 等宽小标：车次、页码、状态这类"标签式"信息 */
+.kicker {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+/* 数字（车次/时刻/6 位码）统一等宽，方便逐位核对 */
+.num { font-family: var(--f-mono); font-variant-numeric: tabular-nums; letter-spacing: 0.5px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border-radius: var(--r-s);
+  padding: 9px 16px;
+  font-size: 15px;
+  border: 1px solid transparent;
+  transition: background-color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  min-height: 40px;
+}
+.btn-primary { background: var(--c-brand); color: #fff; }
+.btn-primary:hover { background: var(--c-brand-2); }
+.btn-ghost { background: transparent; border-color: var(--c-line); color: var(--c-ink-0); }
+.btn-ghost:hover { background: var(--c-bg-1); }
+.btn-danger { background: transparent; border-color: var(--c-err); color: var(--c-err); }
+.btn-danger:hover { background: rgba(179, 38, 30, 0.06); }
+
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+  border: 1px solid var(--c-line);
+  color: var(--c-ink-1);
+  background: var(--c-bg-1);
+}
+.tag-brand { border-color: rgba(11, 107, 69, 0.4); color: var(--c-brand); background: rgba(11, 107, 69, 0.06); }
+.tag-warn { border-color: rgba(154, 107, 8, 0.4); color: var(--c-warn); background: rgba(154, 107, 8, 0.07); }
+.tag-err { border-color: rgba(179, 38, 30, 0.4); color: var(--c-err); background: rgba(179, 38, 30, 0.06); }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  margin: -1px; padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---- 共享版式：编辑式页头 / 区块 / 小按钮 / 危险操作两步确认 / 空状态 ----
+   页头统一为「等宽小标 + 大标题 + 一句话」，底部一条细线收口：
+   六页同一个节奏，页面只管往里填内容。 */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin: 0 0 var(--sp-5);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--c-line);
+}
+.page-head-main { min-width: 0; }
+.page-kicker {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--f-mono);
+  font-size: 11px;
+  letter-spacing: 2.2px;
+  text-transform: uppercase;
+  color: var(--c-ink-2);
+}
+.page-title {
+  margin: 0;
+  font-family: var(--f-sans);
+  font-size: var(--fs-display);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+}
+.page-sub { margin: 6px 0 0; font-size: 13px; color: var(--c-ink-1); }
+.page-actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+.block { padding: 18px; margin-bottom: 14px; }
+.block-title { margin: 0 0 6px; font-size: 18px; letter-spacing: 1px; }
+
+.btn-sm { min-height: 34px; padding: 5px 13px; font-size: 14px; }
+.btn.arming { background: rgba(179, 38, 30, 0.08); border-color: var(--c-err); color: var(--c-err); }
+
+/* 空状态：细线 + 标题 + 说明 + 行动区（不再用圆形徽标做装饰） */
+.empty { margin-top: 32px; padding: 40px 24px 44px; text-align: center; border-top: 1px solid var(--c-line); }
+.empty-title { margin: 0 0 6px; font-family: var(--f-sans); font-weight: 700; font-size: 20px; letter-spacing: 0.5px; }
+.empty-hint { margin: 0 auto 18px; max-width: 380px; font-size: 14px; color: var(--c-ink-1); }
+.empty-actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.no-match { padding: 20px 18px; text-align: center; color: var(--c-ink-1); font-size: 14px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

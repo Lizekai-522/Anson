@@ -1,0 +1,28 @@
+{
+  "name": "ancheng",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "安程 — 子女把行程排好，长辈打开就能看懂",
+  "scripts": {
+    "dev": "vite --port 5190 --strictPort --host",
+    "build": "vite build",
+    "preview": "vite preview --port 5190 --strictPort --host",
+    "test:unit": "node --test \"tests/unit/*.test.mjs\"",
+    "test:e2e": "node tests/run-e2e.mjs",
+    "test": "node tests/run-all.mjs",
+    "test:pwa": "node tests/pwa-prod.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "build:single": "node scripts/build-singlefile.mjs"
+  },
+  "dependencies": {
+    "gsap": "^3.15.0",
+    "vue": "^3.5.13"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.1",
+    "jsqr": "^1.4.0",
+    "playwright": "^1.49.1",
+    "vite": "^6.0.7"
+  }
+}

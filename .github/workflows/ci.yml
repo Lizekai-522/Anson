@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 安装浏览器（端到端测试用）
+        run: npx playwright install --with-deps chromium
+
+      - name: 全量回归（单元 + 端到端）
+        run: npm test
+
+      - name: 生产形态校验（PWA / 离线）
+        run: npm run test:pwa
+
+      - name: 单文件交付物
+        run: npm run build:single

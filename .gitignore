@@ -1,0 +1,15 @@
+node_modules/
+dist/
+tests/.lock
+*.log
+.DS_Store
+.vscode/
+.idea/
+# 密钥只放本机 .env（构建说明里会让你 cp server/.env.example .env），示例文件要留下来
+.env
+!.env.example
+# 非源码：上传原件 / 测试生成物 / 分发包，都能由源码重建，不进仓库
+.uploads/
+tests/screenshots/
+.screenshots/
+*.zip
