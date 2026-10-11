@@ -244,6 +244,7 @@ const tripDays = computed(() => {
 // 路线地图：把目的地城市查成经纬度（只传城市名）；查不到就显示提示，不弹错
 const geoBusy = ref(false)
 const geoHint = ref('')
+const geoMissing = ref([])
 const geoPoints = computed(() => {
   const geo = (trip.value && trip.value.geo) || {}
   return destCities.value
@@ -264,10 +265,11 @@ async function loadGeo() {
       const g = await fetchCityCoords(city)
       if (g) { map[city] = { lat: g.lat, lng: g.lng }; got += 1 }
     }
-    if (!got) { geoHint.value = '接不上地图服务：本机跑一下 server（node server/notify-server.mjs）再刷新。'; return }
+    if (!got) { geoHint.value = '接不上地图服务：本机跑一下 server（node server/notify-server.mjs）再刷新。'; geoMissing.value = []; return }
     t.geo = map
     upsertTrip({ ...t, updatedAt: Date.now() })
     geoHint.value = ''
+    geoMissing.value = cities.filter((c) => !map[c]) // 仍没定位到的目的地，如实写出来
   } finally {
     geoBusy.value = false
   }
@@ -683,6 +685,7 @@ onBeforeUnmount(() => {
             label="行程目的地"
           />
           <p v-else class="ov-empty">{{ geoBusy ? '正在取目的地位置…' : (geoHint || '点「刷新」在地图上看看要去的几个地方。') }}</p>
+          <p v-if="geoPoints.length && geoMissing.length" class="ov-empty">没定位到：{{ geoMissing.join('、') }}（点「刷新」再试）</p>
         </div>
       </section>
 

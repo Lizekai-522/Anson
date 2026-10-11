@@ -230,16 +230,28 @@ function serveStatic(res, pathname) {
 const WEATHER_TTL_MS = 30 * 60 * 1000
 const WEATHER_TIMEOUT_MS = 5000
 
+// 城市名 → geocoding 结果（含经纬度）。
+// Open-Meteo 的中文索引对部分城市要带「市」才命中（如「厦门」查不到、「厦门市」能查到），
+// 所以首次没命中时补一次「市」重试 —— 一个便宜的兜底，别让地图/天气凭空少一个目的地。
+async function geocodeCity(city, signal) {
+  const lookup = async (name) => {
+    const g = await fetch(
+      'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(name) + '&count=1&language=zh&format=json',
+      { signal },
+    )
+    const gj = await g.json().catch(() => null)
+    return gj && Array.isArray(gj.results) ? gj.results[0] : null
+  }
+  let first = await lookup(city)
+  if (!first && !/市$/.test(city)) first = await lookup(city + '市')
+  return first
+}
+
 export async function fetchWeatherFor(city) {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), WEATHER_TIMEOUT_MS)
   try {
-    const g = await fetch(
-      'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) + '&count=1&language=zh&format=json',
-      { signal: ctl.signal },
-    )
-    const gj = await g.json().catch(() => null)
-    const first = gj && Array.isArray(gj.results) ? gj.results[0] : null
+    const first = await geocodeCity(city, ctl.signal)
     if (!first || !Number.isFinite(Number(first.latitude))) return { ok: false, reason: 'city_not_found' }
     const f = await fetch(
       'https://api.open-meteo.com/v1/forecast?latitude=' + encodeURIComponent(first.latitude) +
@@ -272,12 +284,7 @@ export async function fetchGeocodeFor(city) {
   const ctl = new AbortController()
   const timer = setTimeout(() => ctl.abort(), WEATHER_TIMEOUT_MS)
   try {
-    const g = await fetch(
-      'https://geocoding-api.open-meteo.com/v1/search?name=' + encodeURIComponent(city) + '&count=1&language=zh&format=json',
-      { signal: ctl.signal },
-    )
-    const gj = await g.json().catch(() => null)
-    const first = gj && Array.isArray(gj.results) ? gj.results[0] : null
+    const first = await geocodeCity(city, ctl.signal)
     const lat = first ? Number(first.latitude) : NaN
     const lng = first ? Number(first.longitude) : NaN
     if (!first || !Number.isFinite(lat) || !Number.isFinite(lng)) return { ok: false, reason: 'city_not_found' }

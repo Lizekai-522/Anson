@@ -84,10 +84,12 @@ const view = computed(() => {
       <span v-if="!pointsMode" class="amap-marker" :style="{ left: view.marker.left + 'px', top: view.marker.top + 'px' }" aria-hidden="true"></span>
       <span
         v-for="m in view.markers" :key="m.key"
-        class="amap-marker amap-marker-no"
+        class="amap-pin"
         :style="{ left: m.left + 'px', top: m.top + 'px' }"
-        :title="m.label"
-      ><span class="amap-marker-num" aria-hidden="true">{{ m.order }}</span><span class="visually-hidden">{{ m.label }}</span></span>
+      >
+        <span class="amap-dot" :title="m.label"><span class="amap-dot-num" aria-hidden="true">{{ m.order }}</span></span>
+        <span v-if="m.label" class="amap-pin-tag">{{ m.label }}</span>
+      </span>
       <span v-if="label" class="amap-label">{{ label }}</span>
       <div v-if="controls && !pointsMode" class="amap-zoom">
         <button type="button" class="amap-zbtn" aria-label="缩小地图" @click="zoomOut">−</button>
@@ -120,17 +122,38 @@ const view = computed(() => {
   border: 3px solid #FFFFFF;
   box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
 }
-/* 多点模式：带序号的绿色标记 */
-.amap-marker-no {
+/* 多点模式：带序号 + 地名标签的标记；translate(-13px,-50%) 让圆点正中落在坐标上 */
+.amap-pin {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transform: translate(-13px, -50%);
+}
+.amap-dot {
+  flex: none;
   width: 26px;
   height: 26px;
-  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  background: #0B6B45;
+  border: 3px solid #FFFFFF;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0B6B45;
 }
-.amap-marker-num { color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1; }
+.amap-dot-num { color: #FFFFFF; font-size: 13px; font-weight: 700; line-height: 1; }
+/* 地名：直接显示在图上，不用悬停也知道这是哪 */
+.amap-pin-tag {
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #101210;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+}
 .amap-label {
   position: absolute;
   left: 8px;
