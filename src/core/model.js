@@ -161,7 +161,12 @@ async function requestProxy(conf, messages, temperature) {
       }),
       signal: ctl.signal,
     })
-    return await readResponse(r)
+    const data = await r.json().catch(() => null)
+    if (!r.ok || !data || data.ok !== true) {
+      return { ok: false, reason: data?.reason || 'http-' + r.status, detail: String(data?.detail || '').slice(0, 200) }
+    }
+    if (typeof data.content !== 'string' || !data.content.trim()) return { ok: false, reason: 'bad-response' }
+    return { ok: true, content: data.content }
   } catch (e) {
     return { ok: false, reason: e && e.name === 'AbortError' ? 'timeout' : 'network' }
   } finally {
